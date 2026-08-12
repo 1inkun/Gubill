@@ -1,0 +1,4 @@
+SQLite:
+    Url: "data.db"
+Gin:
+    Mode: "debug"
