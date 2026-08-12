@@ -1,16 +1,17 @@
 package repository
 
 import (
+	"os"
 	"time"
 
-	"github.com/1inkun/Gubill/internal/config"
 	"github.com/1inkun/Gubill/internal/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func InitDatabaseConnect(config *config.Config) (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open(config.SQLite.Url), &gorm.Config{})
+func InitDatabaseConnect() (*gorm.DB, error) {
+	sqliteUrl := os.Getenv("SQLiteUrl")
+	db, err := gorm.Open(sqlite.Open(sqliteUrl), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}

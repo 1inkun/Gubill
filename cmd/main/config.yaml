@@ -2,3 +2,5 @@ SQLite:
     Url: "data.db"
 Gin:
     Mode: "debug"
+JWT:
+    Salt: "我是马牛逼"

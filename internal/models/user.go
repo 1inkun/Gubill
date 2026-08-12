@@ -16,8 +16,8 @@ type Basic struct {
 
 type User struct {
 	Basic
-	UserName      string
-	NickName      string
+	UserName      string `gorm:"column:username"`
+	NickName      string `gorm:"column:nickname"`
 	AvatarFile    string
 	Email         string
 	PasswordHash  string
@@ -30,8 +30,9 @@ type User struct {
 
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	u.UUID = uuid.NewString()
+	// log.Println(u.UUID)
 	var userData []User
-	db := tx.Where("uuid = ?", u.UUID).Find(userData)
+	db := tx.Where("uuid = ?", u.UUID).Find(&userData)
 	if db.Error != nil {
 		return db.Error
 	}

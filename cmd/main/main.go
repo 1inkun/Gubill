@@ -10,13 +10,13 @@ import (
 )
 
 func main() {
-	config := config.InitConfig()
-	db, err := repository.InitDatabaseConnect(config)
+	config.InitConfig()
+	db, err := repository.InitDatabaseConnect()
 	if err != nil {
 		log.Fatalf("数据库连接错误:%s", err.Error())
 	}
 	_ = db
-	r := router.InitRouter(config, db)
+	r := router.InitRouter(db)
 	server := http.Server{
 		Addr:    ":8080",
 		Handler: r,
