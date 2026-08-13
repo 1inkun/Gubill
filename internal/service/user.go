@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/1inkun/Gubill/internal/middlewares"
 	"github.com/1inkun/Gubill/internal/models"
@@ -50,25 +51,36 @@ func (s *UserService) Login(ctx context.Context, username string, password strin
 
 func (s *UserService) Register(ctx context.Context, username string, nickname string, password string, email string) (string, error) {
 	var checkData []models.User
-	checkData, err := gorm.G[models.User](s.db).Where("username = ?", username).Limit(1).Find(ctx)
-	if err != nil {
-		return "", err
-	}
-	if len(checkData) > 0 {
-		return "", ErrUserAlreadyExist
-	}
 	var newData models.User
 	passwordHash, err := utils.GenNewPasswdHash(password)
 	if err != nil {
+		log.Println(err.Error())
 		return "", ErrFailGenPasswdHash
 	}
 	newData.UserName = username
 	newData.NickName = nickname
 	newData.PasswordHash = passwordHash
 	newData.Email = email
-	err = gorm.G[models.User](s.db).Create(ctx, &newData)
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		var transactionErr error
+		// 先检查该用户名称数据是否存在
+		checkData, transactionErr = gorm.G[models.User](tx).Where("username = ?", username).Find(ctx)
+		if err != nil {
+			return transactionErr
+		}
+		if len(checkData) != 0 {
+			return ErrUserAlreadyExist
+		}
+		// 再进行新数据插入
+		transactionErr = gorm.G[models.User](tx).Create(ctx, &newData)
+		if transactionErr != nil {
+			return transactionErr
+		}
+		return nil
+	})
 	if err != nil {
-		return "", ErrDatabaseErr
+		log.Println(err.Error())
+		return "", err
 	}
 	return newData.UUID, nil
 }

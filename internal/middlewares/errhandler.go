@@ -12,7 +12,7 @@ func ErrHandler() gin.HandlerFunc {
 		c.Next()
 		if len(c.Errors) > 0 {
 			// log.Panicln("出现错误")
-			resp := models.Response
+			resp := models.NewResponse()
 			err := c.Errors.Last().Err
 			// 更新错误响应
 			resp["status"] = "fail"

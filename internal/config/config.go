@@ -34,7 +34,6 @@ func InitConfig() {
 	if err := yaml.Unmarshal(file, &config); err != nil {
 		log.Fatalf("配置文件读取错误:%s", err.Error())
 	}
-	log.Println(config)
 	// 设置环境变量
 	os.Setenv("GinMode", config.Gin.Mode)
 	os.Setenv("SQLiteUrl", config.SQLite.Url)

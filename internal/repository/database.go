@@ -15,7 +15,10 @@ func InitDatabaseConnect() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.AutoMigrate(&models.User{})
+	err = db.AutoMigrate(&models.User{})
+	if err != nil {
+		return nil, err
+	}
 	sqlDB, err := db.DB()
 	// SetMaxIdleConns 设置空闲连接池中连接的最大数量。
 	sqlDB.SetMaxIdleConns(10)

@@ -16,10 +16,10 @@ type Basic struct {
 
 type User struct {
 	Basic
-	UserName      string `gorm:"column:username"`
+	UserName      string `gorm:"unique;column:username"`
 	NickName      string `gorm:"column:nickname"`
 	AvatarFile    string
-	Email         string
+	Email         string `gorm:"unique"`
 	PasswordHash  string
 	Role          string
 	LastLoginIP   string
