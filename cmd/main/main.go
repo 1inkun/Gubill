@@ -15,7 +15,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("数据库连接错误:%s", err.Error())
 	}
-	_ = db
 	r := router.InitRouter(db)
 	server := http.Server{
 		Addr:    ":8080",

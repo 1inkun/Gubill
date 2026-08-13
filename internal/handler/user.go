@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/1inkun/Gubill/internal/models"
@@ -12,19 +11,24 @@ import (
 
 type UserHandler struct {
 	userService *service.UserService
+	validate    *validator.Validate
 }
 
 func NewUserHandler(userService *service.UserService) *UserHandler {
-	return &UserHandler{userService: userService}
+	validate := validator.New()
+	return &UserHandler{
+		userService: userService,
+		validate:    validate,
+	}
 }
 
 var (
-	ErrBindDataError = errors.New("数据绑定出错")
-	ErrWrongReqData  = errors.New("请求所用的数据不符合要求")
+	ErrBindDataError     = models.NewBusinessError(400, "请求参数有误")
+	ErrPasswdANDUsername = models.NewBusinessError(400, "用户名或密码不符合要求")
 )
 
 type LoginData struct {
-	Usernmae string `json:"username" validate:"required,alphanum,min=5,max=20"`
+	Username string `json:"username" validate:"required,alphanum,min=4,max=20"`
 	Password string `json:"password" validate:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789"`
 }
 
@@ -37,30 +41,29 @@ type RegisterData struct {
 
 func (h *UserHandler) Login(c *gin.Context) {
 	response := models.NewResponse()
-	response["msg"] = "登录成功"
+	response.Msg = "登录成功"
 	bodyData := LoginData{}
 	ctx := c.Request.Context()
 	err := c.ShouldBindJSON(&bodyData)
 	if err != nil {
-		models.DataBindErr(c, 400, ErrBindDataError.Error())
+		c.Error(ErrBindDataError)
 		return
 	}
-	if bodyData.Usernmae == "" || bodyData.Password == "" {
-		models.DataBindErr(c, 400, ErrWrongReqData.Error())
+	if bodyData.Username == "" || bodyData.Password == "" {
+		c.Error(ErrPasswdANDUsername)
 		return
 	}
-	validate := validator.New()
-	if err = validate.StructCtx(ctx, bodyData); err != nil {
-		models.DataBindErr(c, 400, ErrWrongReqData.Error())
+	if err = h.validate.StructCtx(ctx, bodyData); err != nil {
+		c.Error(ErrPasswdANDUsername)
 		return
 	}
 	// 数据处理完毕,具体逻辑交由服务层函数处理
-	res, err := h.userService.Login(ctx, bodyData.Usernmae, bodyData.Password)
+	res, err := h.userService.Login(ctx, bodyData.Username, bodyData.Password)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	response["data"] = gin.H{
+	response.Data = gin.H{
 		"token": res,
 	}
 	c.JSON(http.StatusOK, response)
@@ -68,20 +71,19 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 func (h *UserHandler) Register(c *gin.Context) {
 	response := models.NewResponse()
-	response["msg"] = "注册成功"
+	response.Msg = "注册成功"
 	bodyData := RegisterData{}
 	ctx := c.Request.Context()
 	if err := c.ShouldBindJSON(&bodyData); err != nil {
-		models.DataBindErr(c, 400, ErrBindDataError.Error())
+		c.Error(ErrBindDataError)
 		return
 	}
 	if bodyData.UserName == "" || bodyData.Password == "" || bodyData.Email == "" {
-		models.DataBindErr(c, 400, ErrWrongReqData.Error())
+		c.Error(ErrPasswdANDUsername)
 		return
 	}
-	validate := validator.New()
-	if err := validate.StructCtx(ctx, bodyData); err != nil {
-		models.DataBindErr(c, 400, ErrWrongReqData.Error())
+	if err := h.validate.StructCtx(ctx, bodyData); err != nil {
+		c.Error(ErrPasswdANDUsername)
 		return
 	}
 	// 数据处理完毕,调用服务层函数继续
@@ -90,7 +92,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	response["data"] = gin.H{
+	response.Data = gin.H{
 		"userId": res,
 	}
 	c.JSON(http.StatusOK, response)

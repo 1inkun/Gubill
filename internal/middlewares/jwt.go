@@ -1,37 +1,42 @@
 package middlewares
 
 import (
-	"log"
-	"os"
+	"net/http"
 	"time"
 
 	"github.com/1inkun/Gubill/internal/models"
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/1inkun/Gubill/internal/utils"
+	"github.com/gin-gonic/gin"
 )
 
-type JWTClaims struct {
-	Username string
-	Nickname string
-	Role     string
-	jwt.RegisteredClaims
-}
-
-func GenNewJWT(userData models.User) (string, error) {
-	signingKey := []byte(os.Getenv("JWTSalt"))
-	claims := JWTClaims{
-		userData.UserName,
-		userData.NickName,
-		userData.Role,
-		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(6 * time.Hour)),
-			Issuer:    "Server",
-		},
+func CheckJWT() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		resp := models.NewResponse()
+		// 从请求头中获取JWT
+		now := time.Now()
+		JWTString := ctx.GetHeader("Authorization")
+		if JWTString == "" {
+			resp.Code = 401
+			resp.Msg = "JWT有误"
+			ctx.AbortWithStatusJSON(http.StatusForbidden, resp)
+			return
+		}
+		// 解析JWT
+		claim, err := utils.ParseJWT(JWTString)
+		if err != nil {
+			resp.Code = 401
+			resp.Msg = "JWT有误"
+			ctx.AbortWithStatusJSON(http.StatusForbidden, resp)
+			return
+		}
+		if claim.ExpiresAt.Before(now) {
+			resp.Code = 401
+			resp.Msg = "JWT已过期"
+			ctx.AbortWithStatusJSON(http.StatusForbidden, resp)
+			return
+		}
+		ctx.Set("Role", claim.Role)
+		ctx.Set("userId", claim.UserId)
+		ctx.Next()
 	}
-	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := t.SignedString(signingKey)
-	if err != nil {
-		log.Printf("生成JWT时出错:%s", err.Error())
-		return "", err
-	}
-	return tokenString, nil
 }

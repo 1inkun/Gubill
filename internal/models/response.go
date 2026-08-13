@@ -1,24 +1,22 @@
 package models
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 )
 
-func NewResponse() map[string]any {
-	var Response = map[string]any{
-		"code":   200,
-		"status": "success",
-		"msg":    "",
-		"data":   gin.H{},
-	}
-	return Response
+type Response struct {
+	Code   int    `json:"code"`
+	Status string `json:"status"`
+	Msg    string `json:"msg"`
+	Data   any    `json:"data"`
 }
 
-func DataBindErr(c *gin.Context, code int, msg string) {
-	resp := NewResponse()
-	resp["code"] = code
-	resp["msg"] = msg
-	c.JSON(http.StatusBadRequest, resp)
+func NewResponse() Response {
+	var Response = Response{
+		200,
+		"success",
+		"",
+		gin.H{},
+	}
+	return Response
 }
