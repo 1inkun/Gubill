@@ -23,9 +23,11 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 
 	userService := service.NewUserService(db)
 	signService := service.NewSignService(db)
+	memberService := service.NewMemberService(db)
 
 	userHandler := handler.NewUserHandler(userService)
 	sighHandler := handler.NewSignHandler(signService)
+	memberHandler := handler.NewMemberHandler(memberService)
 
 	apiv1 := r.Group("/api/v1")
 	user := apiv1.Group("/user")
@@ -40,6 +42,27 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 		sign.GET("", sighHandler.GetUserSignData)
 		sign.GET("/:sign_id", sighHandler.GetSignData)
 		sign.PUT("/:sign_id", sighHandler.FinishSignData)
+	}
+	memberPlan := apiv1.Group("/member_plan")
+	{
+		memberPlan.Use(middlewares.CheckJWT())
+		memberPlan.GET("", memberHandler.GetAllMemberPlans)
+		memberPlan.GET("/:plan_id", memberHandler.AddNewMemberPlan)
+		memberPlan.POST("/:plan_id", memberHandler.GenMemberPlanOrder)
+	}
+	memberList := apiv1.Group("/member_list")
+	{
+		memberList.Use(middlewares.CheckJWT())
+		memberList.GET("", memberHandler.GetUserMemberData)
+
+	}
+	memberOrder := apiv1.Group("/member_order")
+	{
+		memberOrder.Use(middlewares.CheckJWT())
+		memberOrder.GET("", memberHandler.GetUserMemberOrderData)
+		memberOrder.GET("/:order_id", memberHandler.GetUserMemberOrderDataById)
+		memberOrder.DELETE("/:order_id", memberHandler.CancelMemberOrder)
+		memberOrder.POST("/:order_id", memberHandler.FinishMemberOrder)
 	}
 	return r
 }
@@ -57,9 +80,18 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 	memberService := service.NewMemberService(db)
 	// 构造Handler
 	memberHandler := handler.NewMemberHandler(memberService)
+
 	apiv1Admin := r.Group("/api/v1/")
+	memberPlan := apiv1Admin.Group("/member_plan")
 	{
-		apiv1Admin.POST("/member_plan", memberHandler.AddNewMemberPlan)
+		memberPlan.POST("", memberHandler.AddNewMemberPlan)
+		memberPlan.PUT("/:plan_id", memberHandler.UpdateMemberPlan)
+	}
+	memberList := apiv1Admin.Group("/member_list")
+	{
+		memberList.GET("")
+		memberList.POST("")
+		memberList.PUT("")
 	}
 	return r
 }

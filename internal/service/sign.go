@@ -149,7 +149,7 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		}
 		// 更新订单表中的数据
 		var updateSign models.Sign
-		updateSign.Status = 1
+		updateSign.Status = 2
 		updateSign.EndAt = now
 		updateSign.Value = int64(totalPrice)
 		_, e = gorm.G[models.Sign](tx).Where("uuid = ?", signId).Updates(ctx, updateSign)
