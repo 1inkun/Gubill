@@ -71,13 +71,18 @@ func (h *SignHandler) GetSignData(c *gin.Context) {
 	resp := models.NewResponse()
 	resp.Msg = "获取成功"
 	ctx := c.Request.Context()
+	userId, exist := c.Get("userId")
+	if !exist {
+		c.Error(ErrBindDataError)
+		return
+	}
 	signId := c.Param("sign_id")
 	if signId == "" {
 		c.Error(ErrBindDataError)
 		return
 	}
 	// 服务层处理
-	res, err := h.signService.GetSignData(ctx, signId)
+	res, err := h.signService.GetSignData(ctx, userId.(string), signId)
 	if err != nil {
 		c.Error(err)
 		return

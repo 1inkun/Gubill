@@ -3,10 +3,16 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/1inkun/Gubill/internal/config"
 	"github.com/1inkun/Gubill/internal/repository"
 	"github.com/1inkun/Gubill/internal/router"
+	"golang.org/x/sync/errgroup"
+)
+
+var (
+	g errgroup.Group
 )
 
 func main() {
@@ -15,13 +21,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("数据库连接错误:%s", err.Error())
 	}
-	r := router.InitRouter(db)
 	server := http.Server{
-		Addr:    ":8080",
-		Handler: r,
+		Addr:    os.Getenv("Addr"),
+		Handler: router.InitRouter(db),
 	}
-	err = server.ListenAndServe()
-	if err != nil {
-		log.Fatal("服务器出错")
+	serverAdmin := http.Server{
+		Addr:    ":8081",
+		Handler: router.InitAdminRouter(db),
+	}
+	// 用户侧服务
+	g.Go(func() error {
+		return server.ListenAndServe()
+	})
+	// 管理侧服务
+	g.Go(func() error {
+		return serverAdmin.ListenAndServe()
+	})
+	if err := g.Wait(); err != nil {
+		log.Fatal(err)
 	}
 }

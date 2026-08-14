@@ -12,8 +12,12 @@ import (
 
 func InitRouter(db *gorm.DB) *gin.Engine {
 	ginMode := os.Getenv("GinMode")
+	if ginMode == "" {
+		gin.SetMode("debug")
+	} else {
+		gin.SetMode(ginMode)
+	}
 	r := gin.Default()
-	gin.SetMode(ginMode)
 	// 中间件
 	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
 
@@ -36,6 +40,26 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 		sign.GET("", sighHandler.GetUserSignData)
 		sign.GET("/:sign_id", sighHandler.GetSignData)
 		sign.PUT("/:sign_id", sighHandler.FinishSignData)
+	}
+	return r
+}
+
+func InitAdminRouter(db *gorm.DB) *gin.Engine {
+	ginMode := os.Getenv("GinMode")
+	if ginMode == "" {
+		gin.SetMode("debug")
+	} else {
+		gin.SetMode(ginMode)
+	}
+	r := gin.Default()
+	r.Use(middlewares.RateLimiter(), middlewares.CheckJWT(), middlewares.ErrHandler())
+	// 构造Service
+	memberService := service.NewMemberService(db)
+	// 构造Handler
+	memberHandler := handler.NewMemberHandler(memberService)
+	apiv1Admin := r.Group("/api/v1/")
+	{
+		apiv1Admin.POST("/member_plan", memberHandler.AddNewMemberPlan)
 	}
 	return r
 }

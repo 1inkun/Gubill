@@ -90,7 +90,7 @@ func (s *SignService) GetUserSignData(ctx context.Context, userId string, status
 	return resData, nil
 }
 
-func (s *SignService) GetSignData(ctx context.Context, signId string) (models.SignRes, error) {
+func (s *SignService) GetSignData(ctx context.Context, userId string, signId string) (models.SignRes, error) {
 	var signData []models.Sign
 	signData, err := gorm.G[models.Sign](s.db).Where("uuid = ?", signId).Find(ctx)
 	if err != nil {
@@ -100,6 +100,9 @@ func (s *SignService) GetSignData(ctx context.Context, signId string) (models.Si
 		return models.SignRes{}, nil
 	}
 	data := signData[0]
+	if data.UserId != userId {
+		return models.SignRes{}, ErrWrongUser
+	}
 	signRes := models.SignRes{
 		UUID:    data.UUID,
 		UserId:  data.UserId,
@@ -120,7 +123,7 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		var signData []models.Sign
 		signData, e := gorm.G[models.Sign](tx).Where("uuid = ?", signId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Panicln(e.Error())
+			log.Println(e.Error())
 			return ErrDatabaseErr
 		}
 		if len(signData) == 0 {

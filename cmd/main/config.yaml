@@ -4,3 +4,11 @@ Gin:
     Mode: "debug"
 JWT:
     Salt: "我是马牛逼"
+Server:
+    Addr: ":8080"
+    ReadTimeout: 2000000000
+    WriteTimeout: 3000000000
+ServerAdmin:
+    Addr: ":8081"
+    ReadTimeout: 2000000000
+    WriteTimeout: 3000000000
