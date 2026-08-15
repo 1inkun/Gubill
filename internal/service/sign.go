@@ -149,6 +149,7 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		}
 		// 更新订单表中的数据
 		var updateSign models.Sign
+		// 更新为2表示待支付
 		updateSign.Status = 2
 		updateSign.EndAt = now
 		updateSign.Value = int64(totalPrice)

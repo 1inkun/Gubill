@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// 面向用户开放的接口
 func InitRouter(db *gorm.DB) *gin.Engine {
 	ginMode := os.Getenv("GinMode")
 	if ginMode == "" {
@@ -46,27 +47,36 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 	memberPlan := apiv1.Group("/member_plan")
 	{
 		memberPlan.Use(middlewares.CheckJWT())
+		// 获取全部会员计划
 		memberPlan.GET("", memberHandler.GetAllMemberPlans)
-		memberPlan.GET("/:plan_id", memberHandler.AddNewMemberPlan)
+		// 获取单个会员计划
+		memberPlan.GET("/:plan_id", memberHandler.GetMemberPlanData)
+		// 通过会员计划生成会员订单
 		memberPlan.POST("/:plan_id", memberHandler.GenMemberPlanOrder)
 	}
 	memberList := apiv1.Group("/member_list")
 	{
 		memberList.Use(middlewares.CheckJWT())
+		// 获取用户自己的**会员情况**
 		memberList.GET("", memberHandler.GetUserMemberData)
 
 	}
 	memberOrder := apiv1.Group("/member_order")
 	{
 		memberOrder.Use(middlewares.CheckJWT())
+		// 获取用户自己的**会员订单**
 		memberOrder.GET("", memberHandler.GetUserMemberOrderData)
+		// 通过订单ID获取用户自己的**会员订单**
 		memberOrder.GET("/:order_id", memberHandler.GetUserMemberOrderDataById)
+		// 取消用户自己的**会员订单**
 		memberOrder.DELETE("/:order_id", memberHandler.CancelMemberOrder)
+		// 结算用户自己的**会员订单**
 		memberOrder.POST("/:order_id", memberHandler.FinishMemberOrder)
 	}
 	return r
 }
 
+// 面向管理员开放的接口
 func InitAdminRouter(db *gorm.DB) *gin.Engine {
 	ginMode := os.Getenv("GinMode")
 	if ginMode == "" {
@@ -84,14 +94,26 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 	apiv1Admin := r.Group("/api/v1/")
 	memberPlan := apiv1Admin.Group("/member_plan")
 	{
+		// 新增会员计划
 		memberPlan.POST("", memberHandler.AddNewMemberPlan)
+		// 修改现有的会员计划
 		memberPlan.PUT("/:plan_id", memberHandler.UpdateMemberPlan)
 	}
 	memberList := apiv1Admin.Group("/member_list")
 	{
-		memberList.GET("")
-		memberList.POST("")
-		memberList.PUT("")
+		// 获取目前所有用户的会员情况
+		memberList.GET("", memberHandler.GetAllMemberListData)
+		// 新增会员情况
+		memberList.POST("", memberHandler.AddNewMemberListData)
+		// 修改会员情况
+		memberList.PUT("/:member_id", memberHandler.UpdateMemberListData)
+		memberList.GET("/:member_id")
+	}
+	memberOrder := apiv1Admin.Group("/member_order")
+	{
+		memberOrder.GET("", memberHandler.GetAllMemberOrderData)
+		memberOrder.GET("/:order_id", memberHandler.GetMemberOrderDataByOrderId)
+		memberOrder.PUT("/:order_id", memberHandler.UpdateMemberOrderData)
 	}
 	return r
 }

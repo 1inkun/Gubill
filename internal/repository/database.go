@@ -20,6 +20,9 @@ func InitDatabaseConnect() (*gorm.DB, error) {
 		return nil, err
 	}
 	sqlDB, err := db.DB()
+	if err = sqlDB.Ping(); err != nil {
+		return nil, err
+	}
 	// SetMaxIdleConns 设置空闲连接池中连接的最大数量。
 	sqlDB.SetMaxIdleConns(10)
 	// SetMaxOpenConns 设置打开数据库连接的最大数量。
