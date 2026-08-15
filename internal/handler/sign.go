@@ -12,6 +12,99 @@ type SignHandler struct {
 	signService *service.SignService
 }
 
+// 面向管理端的接口
+func (h *SignHandler) GetAllSignData(c *gin.Context) {
+	resp := models.NewResponse()
+	resp.Msg = "获取数据成功"
+	ctx := c.Request.Context()
+	role, exist := c.Get("Role")
+	if !exist {
+		c.Error(ErrBindDataError)
+		return
+	}
+	if role != "Admin" {
+		c.Error(ErrForbidden)
+		return
+	}
+	pagin := struct {
+		Page     int `json:"page"`
+		PageSize int `json:"page_size"`
+	}{}
+	err := c.ShouldBindQuery(&pagin)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	// 服务层处理
+	res, err := h.signService.GetAllSignData(ctx, pagin.Page, pagin.PageSize)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	resp.Data = gin.H{
+		"results":  res,
+		"page":     pagin.Page,
+		"pageSize": pagin.PageSize,
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *SignHandler) GetSignDataBySignId(c *gin.Context) {
+	resp := models.NewResponse()
+	resp.Msg = "获取数据成功"
+	ctx := c.Request.Context()
+	role, exist := c.Get("Role")
+	if !exist {
+		c.Error(ErrBindDataError)
+		return
+	}
+	if role != "Admin" {
+		c.Error(ErrForbidden)
+		return
+	}
+	signId := c.Param("sign_id")
+	// 服务层
+	res, err := h.signService.GetSignDataBySignId(ctx, signId)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	resp.Data = res
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *SignHandler) UpdateSignData(c *gin.Context) {
+	resp := models.NewResponse()
+	resp.Msg = "更新成功"
+	ctx := c.Request.Context()
+	role, exist := c.Get("Role")
+	if !exist {
+		c.Error(ErrBindDataError)
+		return
+	}
+	if role != "Admin" {
+		c.Error(ErrForbidden)
+		return
+	}
+	signId := c.Param("sign_id")
+	bodyData := struct {
+		Status int64 `json:"status"`
+		Value  int64 `json:"value"`
+	}{}
+	c.ShouldBindJSON(&bodyData)
+	// 服务层
+	res, err := h.signService.UpdateSignData(ctx, signId, bodyData.Status, bodyData.Value)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	resp.Data = gin.H{
+		"rowsAffected": res,
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// 面向用户端的接口
 func NewSignHandler(signService *service.SignService) *SignHandler {
 	return &SignHandler{signService: signService}
 }

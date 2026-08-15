@@ -63,7 +63,7 @@ func (s *MemberService) UpdatePlanData(ctx context.Context, planId string, name 
 		}
 		res, e = gorm.G[models.MemberPlan](tx).Where("uuid = ?", planId).Updates(ctx, newData)
 		if e != nil {
-			log.Panicln(e.Error())
+			log.Println(e.Error())
 			return e
 		}
 		return nil
@@ -470,7 +470,7 @@ func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, or
 			return ErrDatabaseErr
 		}
 		// 修改会员订单的状态(2为待支付)
-		_, e = gorm.G[models.MemberOrders](tx).Update(ctx, "status", 2)
+		_, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Update(ctx, "status", 2)
 		if e != nil {
 			log.Println(e.Error())
 			return ErrDatabaseErr

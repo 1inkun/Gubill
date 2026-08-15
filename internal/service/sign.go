@@ -65,6 +65,53 @@ func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (s
 	return newData.UUID, nil
 }
 
+func (s *SignService) GetAllSignData(ctx context.Context, page int, pageSize int) ([]models.SignRes, error) {
+	var rawData []models.Sign
+	tx := s.db.Model(&models.Sign{}).WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&rawData)
+	if tx.Error != nil {
+		log.Println(tx.Error.Error())
+		return nil, ErrDatabaseErr
+	}
+	if len(rawData) == 0 {
+		return nil, nil
+	}
+	var resData []models.SignRes
+	for _, v := range rawData {
+		temp := models.SignRes{
+			UUID:    v.UUID,
+			UserId:  v.UserId,
+			StartAt: v.StartAt,
+			EndAt:   v.EndAt,
+			Status:  v.Status,
+			Value:   v.Value,
+		}
+		resData = append(resData, temp)
+	}
+	return resData, nil
+}
+
+func (s *SignService) GetSignDataBySignId(ctx context.Context, signId string) (models.SignRes, error) {
+	var rawData []models.Sign
+	rawData, err := gorm.G[models.Sign](s.db).Where("uuid = ?", signId).Limit(1).Find(ctx)
+	if err != nil {
+		log.Println(err)
+		return models.SignRes{}, ErrDatabaseErr
+	}
+	if len(rawData) == 0 {
+		return models.SignRes{}, ErrNoSuchData
+	}
+	data := rawData[0]
+	var resData = models.SignRes{
+		UUID:    data.UUID,
+		UserId:  data.UserId,
+		StartAt: data.StartAt,
+		EndAt:   data.EndAt,
+		Status:  data.Status,
+		Value:   data.Value,
+	}
+	return resData, nil
+}
+
 func (s *SignService) GetUserSignData(ctx context.Context, userId string, status int64) ([]models.SignRes, error) {
 	var signDatas []models.Sign
 	signDatas, err := gorm.G[models.Sign](s.db).Where("user_id = ? AND status = ?", userId, status).Find(ctx)
@@ -112,6 +159,37 @@ func (s *SignService) GetSignData(ctx context.Context, userId string, signId str
 		Value:   data.Value,
 	}
 	return signRes, nil
+}
+
+func (s *SignService) UpdateSignData(ctx context.Context, signId string, status int64, value int64) (int, error) {
+	var res int
+	var newData models.Sign
+	newData.Status = status
+	if newData.Status != 0 {
+		newData.EndAt = time.Now().Unix()
+		newData.Value = value
+	} else {
+		newData.Value = value
+	}
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// 检查是否存在对应的数据
+		var check []models.Sign
+		check, e := gorm.G[models.Sign](tx).Where("uuid = ?", signId).Limit(1).Find(ctx)
+		if e != nil {
+			log.Println(e.Error())
+			return ErrDatabaseErr
+		}
+		if len(check) == 0 {
+			return ErrNoSuchData
+		}
+		// 实际更新
+		res, e = gorm.G[models.Sign](tx).Where("uuid = ?", signId).Updates(ctx, newData)
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return res, nil
 }
 
 func (s *SignService) FinishSignData(ctx context.Context, userId string, signId string) (string, error) {

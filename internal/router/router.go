@@ -88,10 +88,13 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 	r.Use(middlewares.RateLimiter(), middlewares.CheckJWT(), middlewares.ErrHandler())
 	// 构造Service
 	memberService := service.NewMemberService(db)
+	signService := service.NewSignService(db)
 	// 构造Handler
 	memberHandler := handler.NewMemberHandler(memberService)
+	signHandler := handler.NewSignHandler(signService)
 
 	apiv1Admin := r.Group("/api/v1/")
+	// 会员服务相关的管理接口
 	memberPlan := apiv1Admin.Group("/member_plan")
 	{
 		// 新增会员计划
@@ -107,13 +110,20 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 		memberList.POST("", memberHandler.AddNewMemberListData)
 		// 修改会员情况
 		memberList.PUT("/:member_id", memberHandler.UpdateMemberListData)
-		memberList.GET("/:member_id")
+		memberList.GET("/:member_id", memberHandler.GetMemberListDataByMemberId)
 	}
 	memberOrder := apiv1Admin.Group("/member_order")
 	{
 		memberOrder.GET("", memberHandler.GetAllMemberOrderData)
 		memberOrder.GET("/:order_id", memberHandler.GetMemberOrderDataByOrderId)
 		memberOrder.PUT("/:order_id", memberHandler.UpdateMemberOrderData)
+	}
+	// 签到服务的相关管理接口
+	sign := apiv1Admin.Group("/sign")
+	{
+		sign.GET("", signHandler.GetAllSignData)
+		sign.GET("/:sign_id", signHandler.GetSignDataBySignId)
+		sign.PUT("/:sign_id", signHandler.UpdateSignData)
 	}
 	return r
 }
