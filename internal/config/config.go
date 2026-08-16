@@ -3,16 +3,16 @@ package config
 import (
 	"log"
 	"os"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	SQLite SQLite `yaml:"SQLite"`
-	Gin    Gin    `yaml:"Gin"`
-	JWT    JWT    `yaml:"JWT"`
-	Server Server `yaml:"Server"`
+	SQLite      SQLite      `yaml:"SQLite"`
+	Gin         Gin         `yaml:"Gin"`
+	JWT         JWT         `yaml:"JWT"`
+	Server      Server      `yaml:"Server"`
+	ServerAdmin ServerAdmin `yaml:"ServerAdmin"`
 }
 
 type SQLite struct {
@@ -28,9 +28,11 @@ type JWT struct {
 }
 
 type Server struct {
-	Addr         string `yaml:"Addr"`
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
+	Addr string `yaml:"Addr"`
+}
+
+type ServerAdmin struct {
+	Addr string `yaml:"Addr"`
 }
 
 func InitConfig() {
@@ -47,5 +49,6 @@ func InitConfig() {
 	os.Setenv("GinMode", config.Gin.Mode)
 	os.Setenv("SQLiteUrl", config.SQLite.Url)
 	os.Setenv("JWTSalt", config.JWT.Salt)
-	os.Setenv("Addr", config.Server.Addr)
+	os.Setenv("ServerAddr", config.Server.Addr)
+	os.Setenv("ServerAdminAddr", config.ServerAdmin.Addr)
 }

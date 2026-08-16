@@ -14,7 +14,7 @@ type Basic struct {
 
 type User struct {
 	Basic
-	UserName      string `gorm:"unique;column:username"`
+	UserName      string `gorm:"unique;column:username;index"`
 	NickName      string `gorm:"column:nickname"`
 	AvatarFile    string
 	Email         string `gorm:"unique"`

@@ -20,6 +20,9 @@ func InitDatabaseConnect() (*gorm.DB, error) {
 		return nil, err
 	}
 	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
 	if err = sqlDB.Ping(); err != nil {
 		return nil, err
 	}

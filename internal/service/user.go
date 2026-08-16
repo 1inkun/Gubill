@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"log"
+	"errors"
 
 	"github.com/1inkun/Gubill/internal/models"
 	"github.com/1inkun/Gubill/internal/utils"
@@ -18,11 +18,8 @@ func NewUserService(db *gorm.DB) *UserService {
 }
 
 var (
-	ErrNoSuchUser          = models.NewBusinessError(404, "用户名或密码错误")
-	ErrDatabaseErr         = models.NewInternalError(500, "数据库访问出错")
-	ErrFailGenJWT          = models.NewInternalError(500, "生成令牌时遇到错误")
+	ErrNoSuchUser          = models.NewBusinessError(401, "用户名或密码错误")
 	ErrUserAlreadyExist    = models.NewBusinessError(400, "该用户名已被注册")
-	ErrFailGenPasswdHash   = models.NewInternalError(500, "生成密码哈希错误")
 	ErrWrongPasswd         = models.NewBusinessError(401, "密码错误")
 	ErrWrongEmaiOrUserName = models.NewBusinessError(401, "用户名或邮箱已被占用")
 )
@@ -31,7 +28,7 @@ func (s *UserService) Login(ctx context.Context, username string, password strin
 	var userDatas []models.User
 	userDatas, err := gorm.G[models.User](s.db).Where("username = ?", username).Limit(1).Find(ctx)
 	if err != nil {
-		return "", ErrDatabaseErr
+		return "", models.NewDatabaseErr(err)
 	}
 	if len(userDatas) == 0 {
 		return "", ErrNoSuchUser
@@ -44,6 +41,7 @@ func (s *UserService) Login(ctx context.Context, username string, password strin
 	// 登录成功,生成JWT
 	tokenString, err := utils.GenNewJWT(userData)
 	if err != nil {
+		ErrFailGenJWT := models.NewInternalError(500, "登录失败", err)
 		return "", ErrFailGenJWT
 	}
 	return tokenString, nil
@@ -53,7 +51,7 @@ func (s *UserService) Register(ctx context.Context, username string, nickname st
 	var newData models.User
 	passwordHash, err := utils.GenNewPasswdHash(password)
 	if err != nil {
-		log.Println(err.Error())
+		ErrFailGenPasswdHash := models.NewInternalError(500, "注册失败", err)
 		return "", ErrFailGenPasswdHash
 	}
 	newData.UserName = username
@@ -63,7 +61,10 @@ func (s *UserService) Register(ctx context.Context, username string, nickname st
 	// 直接插入数据,利用唯一性标签处理用户名和邮箱占用
 	err = gorm.G[models.User](s.db).Create(ctx, &newData)
 	if err != nil {
-		return "", ErrWrongEmaiOrUserName
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return "", ErrWrongEmaiOrUserName
+		}
+		return "", models.NewDatabaseErr(err)
 	}
 	return newData.UUID, nil
 }

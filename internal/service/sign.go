@@ -36,18 +36,17 @@ func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (s
 	// 在事务中处理
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// 查表确定用户真实存在
-		userData, e := gorm.G[models.User](tx).Where("uuid = ?", userId).Find(ctx)
+		userData, e := gorm.G[models.User](tx).Select("uuid").Where("uuid = ?", userId).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(userData) == 0 {
 			return ErrUserNoExist
 		}
-		// 确定用户存在后继续查表,确保没有正在进行中的签到
-		check, e := gorm.G[models.Sign](tx).Where("user_id = ? AND status = 0", userId).Find(ctx)
+		// 确定用户存在后继续查表,确保该用户没有正在进行中的签到
+		check, e := gorm.G[models.Sign](tx).Select("uuid").Where("user_id = ? AND status = 0", userId).Find(ctx)
 		if e != nil {
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(check) != 0 {
 			return ErrExistSignData
@@ -55,7 +54,7 @@ func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (s
 		// 确认无误后添加新的签到数据
 		e = gorm.G[models.Sign](tx).Create(ctx, &newData)
 		if e != nil {
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		return nil
 	})
@@ -66,28 +65,16 @@ func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (s
 }
 
 func (s *SignService) GetAllSignData(ctx context.Context, page int, pageSize int) ([]models.SignRes, error) {
-	var rawData []models.Sign
-	tx := s.db.Model(&models.Sign{}).WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&rawData)
+	var datas []models.SignRes
+	tx := s.db.Model(&models.Sign{}).Select(&models.SignRes{}).WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
 	if tx.Error != nil {
 		log.Println(tx.Error.Error())
-		return nil, ErrDatabaseErr
+		return nil, models.NewDatabaseErr(tx.Error)
 	}
-	if len(rawData) == 0 {
+	if len(datas) == 0 {
 		return nil, nil
 	}
-	var resData []models.SignRes
-	for _, v := range rawData {
-		temp := models.SignRes{
-			UUID:    v.UUID,
-			UserId:  v.UserId,
-			StartAt: v.StartAt,
-			EndAt:   v.EndAt,
-			Status:  v.Status,
-			Value:   v.Value,
-		}
-		resData = append(resData, temp)
-	}
-	return resData, nil
+	return datas, nil
 }
 
 func (s *SignService) GetSignDataBySignId(ctx context.Context, signId string) (models.SignRes, error) {
@@ -95,7 +82,7 @@ func (s *SignService) GetSignDataBySignId(ctx context.Context, signId string) (m
 	rawData, err := gorm.G[models.Sign](s.db).Where("uuid = ?", signId).Limit(1).Find(ctx)
 	if err != nil {
 		log.Println(err)
-		return models.SignRes{}, ErrDatabaseErr
+		return models.SignRes{}, models.NewDatabaseErr(err)
 	}
 	if len(rawData) == 0 {
 		return models.SignRes{}, ErrNoSuchData
@@ -116,7 +103,7 @@ func (s *SignService) GetUserSignData(ctx context.Context, userId string, status
 	var signDatas []models.Sign
 	signDatas, err := gorm.G[models.Sign](s.db).Where("user_id = ? AND status = ?", userId, status).Find(ctx)
 	if err != nil {
-		return nil, ErrDatabaseErr
+		return nil, models.NewDatabaseErr(err)
 	}
 	if len(signDatas) == 0 {
 		return nil, nil
@@ -141,7 +128,7 @@ func (s *SignService) GetSignData(ctx context.Context, userId string, signId str
 	var signData []models.Sign
 	signData, err := gorm.G[models.Sign](s.db).Where("uuid = ?", signId).Find(ctx)
 	if err != nil {
-		return models.SignRes{}, ErrDatabaseErr
+		return models.SignRes{}, models.NewDatabaseErr(err)
 	}
 	if len(signData) == 0 {
 		return models.SignRes{}, nil
@@ -174,10 +161,9 @@ func (s *SignService) UpdateSignData(ctx context.Context, signId string, status 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// 检查是否存在对应的数据
 		var check []models.Sign
-		check, e := gorm.G[models.Sign](tx).Where("uuid = ?", signId).Limit(1).Find(ctx)
+		check, e := gorm.G[models.Sign](tx).Select("uuid").Where("uuid = ?", signId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(check) == 0 {
 			return ErrNoSuchData
@@ -199,18 +185,14 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 	now := time.Now().Unix()
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var signData []models.Sign
-		signData, e := gorm.G[models.Sign](tx).Where("uuid = ?", signId).Limit(1).Find(ctx)
+		signData, e := gorm.G[models.Sign](tx).Where("uuid = ? AND status = 0", signId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(signData) == 0 {
 			return ErrSignDataNoExist
 		}
 		data := signData[0]
-		if data.Status == 1 {
-			return ErrAlreadyFinished
-		}
 		if data.UserId != userId {
 			return ErrWrongUser
 		}
@@ -220,10 +202,10 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		newPay.BusinessId = data.UUID
 		newPay.Value = int64(totalPrice)
 		newPay.ExpireTime = time.Now().Add(30 * time.Minute).Unix()
+		// 插入数据
 		e = gorm.G[models.Pay](tx).Create(ctx, &newPay)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		// 更新订单表中的数据
 		var updateSign models.Sign
@@ -233,8 +215,7 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		updateSign.Value = int64(totalPrice)
 		_, e = gorm.G[models.Sign](tx).Where("uuid = ?", signId).Updates(ctx, updateSign)
 		if e != nil {
-			log.Println(e)
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		return nil
 	})

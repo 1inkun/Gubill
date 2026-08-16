@@ -28,29 +28,24 @@ var (
 )
 
 type LoginData struct {
-	Username string `json:"username" validate:"required,alphanum,min=4,max=20"`
-	Password string `json:"password" validate:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789"`
+	Username string `json:"username" validate:"required,alphanum,min=4,max=20" binding:"required"`
+	Password string `json:"password" validate:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789" binding:"required"`
 }
 
 type RegisterData struct {
-	UserName string `json:"username" validate:"required,alphanum,min=4,max=20"`
+	UserName string `json:"username" validate:"required,alphanum,min=4,max=20" binding:"required"`
 	NickName string `json:"nickname" validate:"min=0,max=16"`
-	Password string `json:"password" validate:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789"`
-	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789" binding:"required"`
+	Email    string `json:"email" validate:"required,email" binding:"required,email"`
 }
 
 func (h *UserHandler) Login(c *gin.Context) {
-	response := models.NewResponse()
-	response.Msg = "登录成功"
+	response := models.NewResponse(200, "success", "登录成功", nil)
 	bodyData := LoginData{}
 	ctx := c.Request.Context()
 	err := c.ShouldBindJSON(&bodyData)
 	if err != nil {
 		c.Error(ErrBindDataError)
-		return
-	}
-	if bodyData.Username == "" || bodyData.Password == "" {
-		c.Error(ErrPasswdANDUsername)
 		return
 	}
 	if err = h.validate.StructCtx(ctx, bodyData); err != nil {
@@ -70,16 +65,11 @@ func (h *UserHandler) Login(c *gin.Context) {
 }
 
 func (h *UserHandler) Register(c *gin.Context) {
-	response := models.NewResponse()
-	response.Msg = "注册成功"
+	response := models.NewResponse(200, "success", "登录成功", nil)
 	bodyData := RegisterData{}
 	ctx := c.Request.Context()
 	if err := c.ShouldBindJSON(&bodyData); err != nil {
 		c.Error(ErrBindDataError)
-		return
-	}
-	if bodyData.UserName == "" || bodyData.Password == "" || bodyData.Email == "" {
-		c.Error(ErrPasswdANDUsername)
 		return
 	}
 	if err := h.validate.StructCtx(ctx, bodyData); err != nil {

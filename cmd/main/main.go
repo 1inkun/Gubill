@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/1inkun/Gubill/internal/config"
 	"github.com/1inkun/Gubill/internal/repository"
@@ -22,37 +26,48 @@ func main() {
 		log.Fatalf("数据库连接错误:%s", err.Error())
 	}
 	server := http.Server{
-		Addr:    os.Getenv("Addr"),
+		Addr:    os.Getenv("ServerAddr"),
 		Handler: router.InitRouter(db),
 	}
 	serverAdmin := http.Server{
-		Addr:    ":8081",
+		Addr:    os.Getenv("ServerAdminAddr"),
 		Handler: router.InitAdminRouter(db),
 	}
+	// // 用户侧服务
+	// g.Go(func() error {
+	// 	return server.ListenAndServe()
+	// })
+	// // 管理侧服务
+	// g.Go(func() error {
+	// 	return serverAdmin.ListenAndServe()
+	// })
+	// if err := g.Wait(); err != nil && err != http.ErrServerClosed {
+	// 	log.Fatal(err)
+	// }
 	// 用户侧服务
-	g.Go(func() error {
-		return server.ListenAndServe()
-	})
-	// 管理侧服务
-	g.Go(func() error {
-		return serverAdmin.ListenAndServe()
-	})
-	if err := g.Wait(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
-	}
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalln("用户服务出错")
+		}
+	}()
+	go func() {
+		if err := serverAdmin.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalln("管理服务出错")
+		}
+	}()
 	// 优雅关停
 	// 等待中断信号，以便在5秒后优雅关停服务器
-	// quit := make(chan os.Signal, 1)
-	// signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	// <-quit
-	// log.Println("Shutdown Server ...")
-	// ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// defer cancel()
-	// if err := server.Shutdown(ctx); err != nil {
-	// 	log.Println("Server Shutdown:", err)
-	// }
-	// if err := serverAdmin.Shutdown(ctx); err != nil {
-	// 	log.Println("Server Shutdown:", err)
-	// }
-	// log.Println("Server exiting")
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutdown Server ...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Println("Server Shutdown:", err)
+	}
+	if err := serverAdmin.Shutdown(ctx); err != nil {
+		log.Println("Server Shutdown:", err)
+	}
+	log.Println("Server exiting")
 }

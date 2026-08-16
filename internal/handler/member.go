@@ -23,8 +23,7 @@ var (
 // 管理侧接口
 // MemberPlan相关接口
 func (h *MemberHandler) AddNewMemberPlan(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "添加成功"
+	resp := models.NewResponse(200, "success", "添加成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -36,10 +35,10 @@ func (h *MemberHandler) AddNewMemberPlan(c *gin.Context) {
 		return
 	}
 	bodyData := struct {
-		Name  string `json:"name"`
-		Type  string `json:"type"`
-		Value int64  `json:"value"`
-		Des   string `json:"des"`
+		Name  string `json:"name" binding:"required"`
+		Type  string `json:"type" binding:"required"`
+		Value int64  `json:"value" binding:"required"`
+		Des   string `json:"des" binding:"required"`
 	}{}
 	err := c.ShouldBindJSON(&bodyData)
 	if err != nil {
@@ -59,8 +58,7 @@ func (h *MemberHandler) AddNewMemberPlan(c *gin.Context) {
 }
 
 func (h *MemberHandler) UpdateMemberPlan(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "修改成功"
+	resp := models.NewResponse(200, "success", "修改成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -73,9 +71,9 @@ func (h *MemberHandler) UpdateMemberPlan(c *gin.Context) {
 	}
 	planId := c.Param("plan_id")
 	bodyData := struct {
-		Name  string `json:"name"`
-		Value int64  `json:"value"`
-		Des   string `json:"des"`
+		Name  string `json:"name" binding:"required"`
+		Value int64  `json:"value" binding:"required"`
+		Des   string `json:"des" binding:"required"`
 	}{}
 	if err := c.ShouldBindJSON(&bodyData); err != nil {
 		c.Error(ErrBindDataError)
@@ -95,8 +93,7 @@ func (h *MemberHandler) UpdateMemberPlan(c *gin.Context) {
 
 // MemberOrder相关接口
 func (h *MemberHandler) GetAllMemberOrderData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取成功"
+	resp := models.NewResponse(200, "success", "获取成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -108,11 +105,11 @@ func (h *MemberHandler) GetAllMemberOrderData(c *gin.Context) {
 		return
 	}
 	pagin := struct {
-		Page     int `form:"page"`
+		Page     int `form:"page" binding:"required"`
 		PageSize int `form:"page_size"`
 	}{}
 	if err := c.ShouldBindQuery(&pagin); err != nil {
-		c.Error(err)
+		c.Error(ErrBindDataError)
 		return
 	}
 	// 服务层
@@ -121,19 +118,16 @@ func (h *MemberHandler) GetAllMemberOrderData(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	if res != nil {
-		resp.Data = gin.H{
-			"results":  res,
-			"page":     pagin.Page,
-			"pageSize": pagin.PageSize,
-		}
+	resp.Data = gin.H{
+		"results":  res,
+		"page":     pagin.Page,
+		"pageSize": pagin.PageSize,
 	}
 	c.JSON(http.StatusOK, resp)
 }
 
 func (h *MemberHandler) GetMemberOrderDataByOrderId(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "修改成功"
+	resp := models.NewResponse(200, "success", "修改成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -156,8 +150,7 @@ func (h *MemberHandler) GetMemberOrderDataByOrderId(c *gin.Context) {
 }
 
 func (h *MemberHandler) UpdateMemberOrderData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "修改成功"
+	resp := models.NewResponse(200, "success", "修改成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -170,12 +163,12 @@ func (h *MemberHandler) UpdateMemberOrderData(c *gin.Context) {
 	}
 	orderId := c.Param("order_id")
 	bodyData := struct {
-		Value  int64 `json:"value"`
-		Status int64 `json:"status"`
+		Value  int64 `json:"value" binding:"required"`
+		Status int64 `json:"status" binding:"required"`
 	}{}
 	err := c.ShouldBindJSON(&bodyData)
 	if err != nil {
-		c.Error(err)
+		c.Error(ErrBindDataError)
 		return
 	}
 	// 服务层
@@ -192,8 +185,7 @@ func (h *MemberHandler) UpdateMemberOrderData(c *gin.Context) {
 
 // MemberList相关接口
 func (h *MemberHandler) GetAllMemberListData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取成功"
+	resp := models.NewResponse(200, "success", "获取成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -205,7 +197,7 @@ func (h *MemberHandler) GetAllMemberListData(c *gin.Context) {
 		return
 	}
 	pagin := struct {
-		Page     int `form:"page"`
+		Page     int `form:"page" binding:"required"`
 		PageSize int `form:"page_size"`
 	}{}
 	if err := c.ShouldBindQuery(&pagin); err != nil {
@@ -218,19 +210,16 @@ func (h *MemberHandler) GetAllMemberListData(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	if len(res) != 0 {
-		resp.Data = gin.H{
-			"results":  res,
-			"page":     pagin.Page,
-			"pageSize": pagin.PageSize,
-		}
+	resp.Data = gin.H{
+		"results":  res,
+		"page":     pagin.Page,
+		"pageSize": pagin.PageSize,
 	}
 	c.JSON(http.StatusOK, resp)
 }
 
 func (h *MemberHandler) GetMemberListDataByMemberId(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取成功"
+	resp := models.NewResponse(200, "success", "获取成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -253,8 +242,7 @@ func (h *MemberHandler) GetMemberListDataByMemberId(c *gin.Context) {
 }
 
 func (h *MemberHandler) AddNewMemberListData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "添加新的会员信息成功"
+	resp := models.NewResponse(200, "success", "添加新的会员信息成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -266,12 +254,12 @@ func (h *MemberHandler) AddNewMemberListData(c *gin.Context) {
 		return
 	}
 	bodyData := struct {
-		UserId string `json:"userId"`
-		EndAt  int64  `json:"end_at"`
+		UserId string `json:"userId" binding:"required"`
+		EndAt  int64  `json:"end_at" binding:"required"`
 	}{}
 	err := c.ShouldBindJSON(&bodyData)
 	if err != nil {
-		c.Error(err)
+		c.Error(ErrBindDataError)
 		return
 	}
 	// 服务层
@@ -287,8 +275,7 @@ func (h *MemberHandler) AddNewMemberListData(c *gin.Context) {
 }
 
 func (h *MemberHandler) UpdateMemberListData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "更新会员信息成功"
+	resp := models.NewResponse(200, "success", "更新会员信息成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -301,8 +288,8 @@ func (h *MemberHandler) UpdateMemberListData(c *gin.Context) {
 	}
 	memberId := c.Param("member_id")
 	bodyData := struct {
-		Status int64 `json:"status"`
-		EndAt  int64 `json:"end_at"`
+		Status int64 `json:"status" binding:"required"`
+		EndAt  int64 `json:"end_at" binding:"required"`
 	}{}
 	if err := c.ShouldBindJSON(&bodyData); err != nil {
 		c.Error(ErrBindDataError)
@@ -323,8 +310,7 @@ func (h *MemberHandler) UpdateMemberListData(c *gin.Context) {
 // 用户侧接口
 // MemberPlan相关接口
 func (h *MemberHandler) GetMemberPlanData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "数据获取成功"
+	resp := models.NewResponse(200, "success", "数据获取成功", nil)
 	ctx := c.Request.Context()
 	planId := c.Param("plan_id")
 	// 服务层处理
@@ -340,8 +326,7 @@ func (h *MemberHandler) GetMemberPlanData(c *gin.Context) {
 }
 
 func (h *MemberHandler) GenMemberPlanOrder(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "订单生成成功"
+	resp := models.NewResponse(200, "success", "订单生成成功", nil)
 	ctx := c.Request.Context()
 	planId := c.Param("plan_id")
 	userId, exist := c.Get("userId")
@@ -362,8 +347,7 @@ func (h *MemberHandler) GenMemberPlanOrder(c *gin.Context) {
 }
 
 func (h *MemberHandler) GetAllMemberPlans(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取会员计划成功"
+	resp := models.NewResponse(200, "success", "获取会员计划成功", nil)
 	ctx := c.Request.Context()
 	// 服务层处理
 	res, err := h.memberService.GetAllMemberPlans(ctx)
@@ -379,8 +363,7 @@ func (h *MemberHandler) GetAllMemberPlans(c *gin.Context) {
 
 // MemberOrder相关接口
 func (h *MemberHandler) GetUserMemberOrderData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取数据成功"
+	resp := models.NewResponse(200, "success", "获取数据成功", nil)
 	ctx := c.Request.Context()
 	userId, exist := c.Get("userId")
 	if !exist {
@@ -389,29 +372,30 @@ func (h *MemberHandler) GetUserMemberOrderData(c *gin.Context) {
 	}
 	// 数据量较大,可能要分页查询
 	pagin := struct {
-		Page     int `form:"page"`
+		Page     int `form:"page" binding:"required"`
 		PageSize int `form:"page_size"`
 	}{}
-	c.ShouldBindQuery(&pagin)
+	err := c.ShouldBindQuery(&pagin)
+	if err != nil {
+		c.Error(ErrBindDataError)
+		return
+	}
 	// 服务层
 	res, err := h.memberService.GetUserMemberOrderData(ctx, userId.(string), pagin.Page, pagin.PageSize)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	if res != nil {
-		resp.Data = gin.H{
-			"results":  res,
-			"page":     pagin.Page,
-			"pageSize": pagin.PageSize,
-		}
+	resp.Data = gin.H{
+		"results":  res,
+		"page":     pagin.Page,
+		"pageSize": pagin.PageSize,
 	}
 	c.JSON(http.StatusOK, resp)
 }
 
 func (h *MemberHandler) GetUserMemberOrderDataById(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取数据成功"
+	resp := models.NewResponse(200, "success", "获取数据成功", nil)
 	ctx := c.Request.Context()
 	userId, exist := c.Get("userId")
 	if !exist {
@@ -430,8 +414,7 @@ func (h *MemberHandler) GetUserMemberOrderDataById(c *gin.Context) {
 }
 
 func (h *MemberHandler) CancelMemberOrder(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "操作成功"
+	resp := models.NewResponse(200, "success", "操作成功", nil)
 	ctx := c.Request.Context()
 	userId, exist := c.Get("userId")
 	if !exist {
@@ -452,8 +435,7 @@ func (h *MemberHandler) CancelMemberOrder(c *gin.Context) {
 }
 
 func (h *MemberHandler) FinishMemberOrder(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "结算成功"
+	resp := models.NewResponse(200, "success", "结算成功", nil)
 	ctx := c.Request.Context()
 	userId, exist := c.Get("userId")
 	if !exist {
@@ -475,8 +457,7 @@ func (h *MemberHandler) FinishMemberOrder(c *gin.Context) {
 
 // MemberList相关接口
 func (h *MemberHandler) GetUserMemberData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取会员信息成功"
+	resp := models.NewResponse(200, "success", "获取会员信息成功", nil)
 	ctx := c.Request.Context()
 	userId, exist := c.Get("userId")
 	if !exist {

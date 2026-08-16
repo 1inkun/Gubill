@@ -11,27 +11,23 @@ import (
 
 func CheckJWT() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		resp := models.NewResponse()
 		// 从请求头中获取JWT
 		now := time.Now()
 		JWTString := ctx.GetHeader("Authorization")
 		if JWTString == "" {
-			resp.Code = 403
-			resp.Msg = "JWT有误"
+			resp := models.NewResponse(403, "fail", "登录状态有误", nil)
 			ctx.AbortWithStatusJSON(http.StatusForbidden, resp)
 			return
 		}
 		// 解析JWT
 		claim, err := utils.ParseJWT(JWTString)
 		if err != nil {
-			resp.Code = 403
-			resp.Msg = "JWT有误"
+			resp := models.NewResponse(403, "fail", "登录状态有误", nil)
 			ctx.AbortWithStatusJSON(http.StatusForbidden, resp)
 			return
 		}
 		if claim.ExpiresAt.Before(now) {
-			resp.Code = 403
-			resp.Msg = "JWT已过期"
+			resp := models.NewResponse(403, "fail", "登录状态过期", nil)
 			ctx.AbortWithStatusJSON(http.StatusForbidden, resp)
 			return
 		}

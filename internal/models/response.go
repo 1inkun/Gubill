@@ -1,9 +1,5 @@
 package models
 
-import (
-	"github.com/gin-gonic/gin"
-)
-
 type Response struct {
 	Code   int    `json:"code"`
 	Status string `json:"status"`
@@ -11,12 +7,12 @@ type Response struct {
 	Data   any    `json:"data"`
 }
 
-func NewResponse() Response {
+func NewResponse(code int, status string, msg string, data any) Response {
 	var Response = Response{
-		200,
-		"success",
-		"",
-		gin.H{},
+		code,
+		status,
+		msg,
+		data,
 	}
 	return Response
 }

@@ -12,10 +12,13 @@ type SignHandler struct {
 	signService *service.SignService
 }
 
+func NewSignHandler(signService *service.SignService) *SignHandler {
+	return &SignHandler{signService: signService}
+}
+
 // 面向管理端的接口
 func (h *SignHandler) GetAllSignData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取数据成功"
+	resp := models.NewResponse(200, "success", "获取数据成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -27,12 +30,12 @@ func (h *SignHandler) GetAllSignData(c *gin.Context) {
 		return
 	}
 	pagin := struct {
-		Page     int `json:"page"`
+		Page     int `json:"page" binding:"required"`
 		PageSize int `json:"page_size"`
 	}{}
 	err := c.ShouldBindQuery(&pagin)
 	if err != nil {
-		c.Error(err)
+		c.Error(ErrBindDataError)
 		return
 	}
 	// 服务层处理
@@ -50,8 +53,7 @@ func (h *SignHandler) GetAllSignData(c *gin.Context) {
 }
 
 func (h *SignHandler) GetSignDataBySignId(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取数据成功"
+	resp := models.NewResponse(200, "success", "获取数据成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -74,8 +76,7 @@ func (h *SignHandler) GetSignDataBySignId(c *gin.Context) {
 }
 
 func (h *SignHandler) UpdateSignData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "更新成功"
+	resp := models.NewResponse(200, "success", "更新成功", nil)
 	ctx := c.Request.Context()
 	role, exist := c.Get("Role")
 	if !exist {
@@ -88,10 +89,13 @@ func (h *SignHandler) UpdateSignData(c *gin.Context) {
 	}
 	signId := c.Param("sign_id")
 	bodyData := struct {
-		Status int64 `json:"status"`
-		Value  int64 `json:"value"`
+		Status int64 `json:"status" binding:"required"`
+		Value  int64 `json:"value" binding:"required"`
 	}{}
-	c.ShouldBindJSON(&bodyData)
+	if err := c.ShouldBindJSON(&bodyData); err != nil {
+		c.Error(ErrBindDataError)
+		return
+	}
 	// 服务层
 	res, err := h.signService.UpdateSignData(ctx, signId, bodyData.Status, bodyData.Value)
 	if err != nil {
@@ -105,13 +109,8 @@ func (h *SignHandler) UpdateSignData(c *gin.Context) {
 }
 
 // 面向用户端的接口
-func NewSignHandler(signService *service.SignService) *SignHandler {
-	return &SignHandler{signService: signService}
-}
-
 func (h *SignHandler) GenerateNewSignData(c *gin.Context) {
-	response := models.NewResponse()
-	response.Msg = "签到成功"
+	resp := models.NewResponse(200, "success", "签到成功", nil)
 	// 从上下文中获取用户ID
 	ctx := c.Request.Context()
 	userId, exist := c.Get("userId")
@@ -124,15 +123,14 @@ func (h *SignHandler) GenerateNewSignData(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	response.Data = gin.H{
+	resp.Data = gin.H{
 		"signId": res,
 	}
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *SignHandler) GetUserSignData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取成功"
+	resp := models.NewResponse(200, "success", "获取成功", nil)
 	// 从上下文中获取用户ID
 	ctx := c.Request.Context()
 	userId, exist := c.Get("userId")
@@ -141,7 +139,7 @@ func (h *SignHandler) GetUserSignData(c *gin.Context) {
 		return
 	}
 	queryData := struct {
-		Status int64 `form:"status"`
+		Status int64 `form:"status" binding:"required"`
 	}{}
 	err := c.ShouldBindQuery(&queryData)
 	if err != nil {
@@ -161,8 +159,7 @@ func (h *SignHandler) GetUserSignData(c *gin.Context) {
 }
 
 func (h *SignHandler) GetSignData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Msg = "获取成功"
+	resp := models.NewResponse(200, "success", "获取成功", nil)
 	ctx := c.Request.Context()
 	userId, exist := c.Get("userId")
 	if !exist {
@@ -170,10 +167,6 @@ func (h *SignHandler) GetSignData(c *gin.Context) {
 		return
 	}
 	signId := c.Param("sign_id")
-	if signId == "" {
-		c.Error(ErrBindDataError)
-		return
-	}
 	// 服务层处理
 	res, err := h.signService.GetSignData(ctx, userId.(string), signId)
 	if err != nil {
@@ -187,19 +180,14 @@ func (h *SignHandler) GetSignData(c *gin.Context) {
 }
 
 func (h *SignHandler) FinishSignData(c *gin.Context) {
-	resp := models.NewResponse()
-	resp.Data = "结算成功"
+	resp := models.NewResponse(200, "success", "结算成功", nil)
 	ctx := c.Request.Context()
-	signId := c.Param("sign_id")
-	if signId == "" {
-		c.Error(ErrBindDataError)
-		return
-	}
 	userId, exist := c.Get("userId")
 	if !exist {
 		c.Error(ErrBindDataError)
 		return
 	}
+	signId := c.Param("sign_id")
 	// 服务层处理
 	res, err := h.signService.FinishSignData(ctx, userId.(string), signId)
 	if err != nil {

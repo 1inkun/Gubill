@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"log"
 	"time"
 
@@ -35,10 +34,10 @@ func (s *MemberService) AddNewMemberPlan(ctx context.Context, name string, planT
 	// 直接利用Type的唯一性标签
 	err := gorm.G[models.MemberPlan](s.db).Create(ctx, &newData)
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
+		if err == gorm.ErrDuplicatedKey {
 			return "", ErrUniqueErr
 		}
-		return "", ErrDatabaseErr
+		return "", models.NewDatabaseErr(err)
 	}
 	return newData.UUID, nil
 }
@@ -53,18 +52,16 @@ func (s *MemberService) UpdatePlanData(ctx context.Context, planId string, name 
 	var res int
 	// 在事务中处理
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		check, e := gorm.G[models.MemberPlan](tx).Where("uuid = ?", planId).Limit(1).Find(ctx)
+		check, e := gorm.G[models.MemberPlan](tx).Select("uuid").Where("uuid = ?", planId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return e
+			return models.NewDatabaseErr(e)
 		}
 		if len(check) == 0 {
 			return ErrNoSuchData
 		}
 		res, e = gorm.G[models.MemberPlan](tx).Where("uuid = ?", planId).Updates(ctx, newData)
 		if e != nil {
-			log.Println(e.Error())
-			return e
+			return models.NewDatabaseErr(e)
 		}
 		return nil
 	})
@@ -78,7 +75,7 @@ func (s *MemberService) GetMemberPlanData(ctx context.Context, planId string) (m
 	var datas []models.MemberPlan
 	datas, err := gorm.G[models.MemberPlan](s.db).Where("uuid = ?", planId).Find(ctx)
 	if err != nil {
-		return models.MemberPlanRes{}, ErrDatabaseErr
+		return models.MemberPlanRes{}, models.NewDatabaseErr(err)
 	}
 	if len(datas) == 0 {
 		return models.MemberPlanRes{}, ErrNoSuchData
@@ -96,10 +93,9 @@ func (s *MemberService) GetMemberPlanData(ctx context.Context, planId string) (m
 func (s *MemberService) GetAllMemberPlans(ctx context.Context) ([]models.MemberPlanRes, error) {
 	// 预计不会有很多数据,不做分页查询
 	var rawDatas []models.MemberPlan
-	rawDatas, err := gorm.G[models.MemberPlan](s.db).Limit(5).Find(ctx)
+	rawDatas, err := gorm.G[models.MemberPlan](s.db).Find(ctx)
 	if err != nil {
-		log.Println(err.Error())
-		return nil, ErrDatabaseErr
+		return nil, models.NewDatabaseErr(err)
 	}
 	if len(rawDatas) == 0 {
 		return nil, nil
@@ -130,15 +126,14 @@ func (s *MemberService) GenMemberPlanOrder(ctx context.Context, userId string, p
 		// 检查用户和会员计划确实存在
 		var checkUser []models.User
 		var checkPlan []models.MemberPlan
-		checkUser, e := gorm.G[models.User](tx).Where("uuid = ?", userId).Limit(1).Find(ctx)
+		checkUser, e := gorm.G[models.User](tx).Select("uuid").Where("uuid = ?", userId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(checkUser) == 0 {
 			return ErrNoSuchUser
 		}
-		checkPlan, e = gorm.G[models.MemberPlan](tx).Where("uuid = ?", planId).Limit(1).Find(ctx)
+		checkPlan, e = gorm.G[models.MemberPlan](tx).Select("uuid").Where("uuid = ?", planId).Limit(1).Find(ctx)
 		if e != nil {
 			log.Println(e.Error())
 			return e
@@ -148,8 +143,7 @@ func (s *MemberService) GenMemberPlanOrder(ctx context.Context, userId string, p
 		}
 		e = gorm.G[models.MemberOrders](tx).Create(ctx, &newData)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		return nil
 	})
@@ -161,26 +155,15 @@ func (s *MemberService) GenMemberPlanOrder(ctx context.Context, userId string, p
 
 // 针对MemberList的操作
 func (s *MemberService) GetAllMemberListData(ctx context.Context, page int, pageSize int) ([]models.MemberListRes, error) {
-	var rawData []models.MemberList
-	tx := s.db.Model(&models.MemberList{}).WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&rawData)
+	var datas []models.MemberListRes
+	tx := s.db.Model(&models.MemberList{}).Select(&models.MemberListRes{}).WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
 	if tx.Error != nil {
-		log.Println(tx.Error.Error())
-		return nil, ErrDatabaseErr
+		return nil, models.NewDatabaseErr(tx.Error)
 	}
-	if len(rawData) == 0 {
+	if len(datas) == 0 {
 		return nil, ErrNoSuchData
 	}
-	var resData []models.MemberListRes
-	for _, v := range rawData {
-		temp := models.MemberListRes{
-			UUID:   v.UUID,
-			UserId: v.UserId,
-			Status: v.Status,
-			EndAt:  v.EndAt,
-		}
-		resData = append(resData, temp)
-	}
-	return resData, nil
+	return datas, nil
 }
 
 func (s *MemberService) GetMemberListDataByMemberId(ctx context.Context, memberId string) (models.MemberListRes, error) {
@@ -188,7 +171,7 @@ func (s *MemberService) GetMemberListDataByMemberId(ctx context.Context, memberI
 	rawData, err := gorm.G[models.MemberList](s.db).Where("uuid = ?", memberId).Limit(1).Find(ctx)
 	if err != nil {
 		log.Println(err.Error())
-		return models.MemberListRes{}, ErrDatabaseErr
+		return models.MemberListRes{}, models.NewDatabaseErr(err)
 	}
 	if len(rawData) == 0 {
 		return models.MemberListRes{}, ErrNoSuchData
@@ -208,7 +191,7 @@ func (s *MemberService) GetUserMemberData(ctx context.Context, userId string) (m
 	rawData, err := gorm.G[models.MemberList](s.db).Where("user_id = ?", userId).Limit(1).Find(ctx)
 	if err != nil {
 		log.Println(err.Error())
-		return models.MemberListRes{}, ErrDatabaseErr
+		return models.MemberListRes{}, models.NewDatabaseErr(err)
 	}
 	if len(rawData) == 0 {
 		return models.MemberListRes{}, nil
@@ -228,14 +211,14 @@ func (s *MemberService) AddNewMemberListData(ctx context.Context, userId string,
 	var newData = models.MemberList{
 		UserId: userId,
 		Status: 1,
-		EndAt:  time.Now().Add(720 * time.Hour).Unix(),
+		EndAt:  endAt,
 	}
 	err := gorm.G[models.MemberList](s.db).Create(ctx, &newData)
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
+		if err == gorm.ErrDuplicatedKey {
 			return "", ErrExistMemberData
 		}
-		return "", ErrDatabaseErr
+		return "", models.NewDatabaseErr(err)
 	}
 	return newData.UUID, nil
 }
@@ -255,10 +238,9 @@ func (s *MemberService) UpdateMemberListData(ctx context.Context, memberId strin
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// 检查会员信息是否存在
 		var check []models.MemberList
-		check, e := gorm.G[models.MemberList](tx).Where("uuid = ?", memberId).Find(ctx)
+		check, e := gorm.G[models.MemberList](tx).Select("uuid").Where("uuid = ?", memberId).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(check) == 0 {
 			return ErrNoSuchData
@@ -266,8 +248,7 @@ func (s *MemberService) UpdateMemberListData(ctx context.Context, memberId strin
 		// 更新数据
 		res, e = gorm.G[models.MemberList](tx).Where("uuid = ?", memberId).Updates(ctx, newData)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		return nil
 	})
@@ -279,35 +260,23 @@ func (s *MemberService) UpdateMemberListData(ctx context.Context, memberId strin
 
 // 针对MemberOrder的操作
 func (s *MemberService) GetUserMemberOrderData(ctx context.Context, userId string, page int, pageSize int) ([]models.MemberOrderRes, error) {
-	var rawData []models.MemberOrders
-	tx := s.db.Model(&models.MemberOrders{}).WithContext(ctx).Where("user_id = ?", userId).Scopes(utils.Paginate(page, pageSize)).Find(&rawData)
+	var datas []models.MemberOrderRes
+	tx := s.db.Model(&models.MemberOrders{}).WithContext(ctx).Select(&models.MemberOrderRes{}).Where("user_id = ?", userId).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
 	if tx.Error != nil {
-		log.Println(tx.Error.Error())
-		return nil, ErrDatabaseErr
+		return nil, models.NewDatabaseErr(tx.Error)
 	}
-	if len(rawData) == 0 {
+	if len(datas) == 0 {
 		return nil, nil
 	}
-	var resData []models.MemberOrderRes
-	for _, v := range rawData {
-		var temp = models.MemberOrderRes{
-			UUID:   v.UUID,
-			PlanId: v.PlanId,
-			UserId: v.UserId,
-			Value:  v.Value,
-			Status: v.Status,
-		}
-		resData = append(resData, temp)
-	}
-	return resData, nil
+
+	return datas, nil
 }
 
 func (s *MemberService) GetUserMemberOrderDataById(ctx context.Context, userId string, orderId string) (models.MemberOrderRes, error) {
 	var rawData []models.MemberOrders
 	rawData, err := gorm.G[models.MemberOrders](s.db).Where("uuid = ?", orderId).Limit(1).Find(ctx)
 	if err != nil {
-		log.Println(err.Error())
-		return models.MemberOrderRes{}, ErrDatabaseErr
+		return models.MemberOrderRes{}, models.NewDatabaseErr(err)
 	}
 	if len(rawData) == 0 {
 		return models.MemberOrderRes{}, ErrNoSuchData
@@ -327,35 +296,24 @@ func (s *MemberService) GetUserMemberOrderDataById(ctx context.Context, userId s
 }
 
 func (s *MemberService) GetAllMemberOrderData(ctx context.Context, page int, pageSize int) ([]models.MemberOrderRes, error) {
-	var rawData []models.MemberOrders
+	var datas []models.MemberOrderRes
 	// rawData, err := gorm.G[models.MemberOrders](s.db).Scopes(utils.Paginate(page, pageSize)).Find(ctx)
-	tx := s.db.Model(&models.MemberOrders{}).WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&rawData)
+	tx := s.db.Model(&models.MemberOrders{}).WithContext(ctx).Select(&models.MemberOrderRes{}).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
 	if tx.Error != nil {
 		log.Println(tx.Error.Error())
-		return nil, ErrDatabaseErr
+		return nil, models.NewDatabaseErr(tx.Error)
 	}
-	if len(rawData) == 0 {
+	if len(datas) == 0 {
 		return nil, ErrNoSuchData
 	}
-	var resData []models.MemberOrderRes
-	for _, v := range rawData {
-		temp := models.MemberOrderRes{
-			UUID:   v.UUID,
-			PlanId: v.PlanId,
-			UserId: v.UserId,
-			Value:  v.Value,
-			Status: v.Status,
-		}
-		resData = append(resData, temp)
-	}
-	return resData, nil
+	return datas, nil
 }
 
 func (s *MemberService) GetMemberOrderDataByOrderId(ctx context.Context, orderId string) (models.MemberOrderRes, error) {
 	var rawData []models.MemberOrders
 	rawData, err := gorm.G[models.MemberOrders](s.db).Where("uuid = ?", orderId).Limit(1).Find(ctx)
 	if err != nil {
-		return models.MemberOrderRes{}, ErrDatabaseErr
+		return models.MemberOrderRes{}, models.NewDatabaseErr(err)
 	}
 	if len(rawData) == 0 {
 		return models.MemberOrderRes{}, ErrNoSuchData
@@ -383,10 +341,9 @@ func (s *MemberService) UpdateMemberOrderData(ctx context.Context, orderId strin
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// 检查订单是否存在
 		var check []models.MemberOrders
-		check, e := gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Limit(1).Find(ctx)
+		check, e := gorm.G[models.MemberOrders](tx).Select("uuid").Where("uuid = ?", orderId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(check) == 0 {
 			return ErrNoSuchData
@@ -394,8 +351,7 @@ func (s *MemberService) UpdateMemberOrderData(ctx context.Context, orderId strin
 		// 更新订单
 		res, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Updates(ctx, newData)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		return nil
 	})
@@ -411,8 +367,7 @@ func (s *MemberService) CancelMemberOrder(ctx context.Context, userId string, or
 		var check []models.MemberOrders
 		check, e := gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(check) == 0 {
 			return ErrNoSuchData
@@ -424,8 +379,7 @@ func (s *MemberService) CancelMemberOrder(ctx context.Context, userId string, or
 		// 实际的更新操作
 		res, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Update(ctx, "status", -1)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		return nil
 	})
@@ -445,8 +399,7 @@ func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, or
 		var check []models.MemberOrders
 		check, e := gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		if len(check) == 0 {
 			return ErrNoSuchData
@@ -466,14 +419,12 @@ func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, or
 		// 新建支付订单
 		e = gorm.G[models.Pay](tx).Create(ctx, &newData)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		// 修改会员订单的状态(2为待支付)
 		_, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Update(ctx, "status", 2)
 		if e != nil {
-			log.Println(e.Error())
-			return ErrDatabaseErr
+			return models.NewDatabaseErr(e)
 		}
 		return nil
 	})

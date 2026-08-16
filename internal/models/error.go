@@ -21,17 +21,27 @@ func NewBusinessError(code int, msg string) *BusinessError {
 }
 
 type InternalError struct {
-	Code int
-	Msg  string
+	Code     int
+	Msg      string
+	InterErr error
 }
 
 func (e *InternalError) Error() string {
 	return fmt.Sprintf("%d:%s", e.Code, e.Msg)
 }
 
-func NewInternalError(code int, msg string) *InternalError {
+func NewInternalError(code int, msg string, err error) *InternalError {
 	return &InternalError{
-		Code: code,
-		Msg:  msg,
+		Code:     code,
+		Msg:      msg,
+		InterErr: err,
+	}
+}
+
+func NewDatabaseErr(err error) *InternalError {
+	return &InternalError{
+		Code:     500,
+		Msg:      "数据库操作出错",
+		InterErr: err,
 	}
 }
