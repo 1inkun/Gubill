@@ -1,0 +1,10 @@
+# 统一换行符，避免 Windows 检出 CRLF 造成无意义 diff
+* text=auto
+
+# Go 源码与脚本强制 LF（备份脚本在容器内以 /bin/sh 执行）
+*.go text eol=lf
+*.sh text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+Dockerfile text eol=lf
+Makefile text eol=lf

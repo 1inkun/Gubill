@@ -144,3 +144,5 @@ vite.config.ts.timestamp-*
 
 # SQLite Database
 cmd/main/data.db
+data/
+backups/
