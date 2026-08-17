@@ -1,19 +1,18 @@
 <template>
 	<div class="login">login</div>
-    <view >
-        <Login/>
-    </view>
+	<view v-if="mode">
+		<Login @register="() => { mode = false }" />
+	</view>
+	<view v-else>
+		<Register @success="() => { mode = true }" @login="() => { mode = !mode }" />
+	</view>
 </template>
 
 <script setup lang="ts">
 import Login from '@/components/login.vue';
-import CheckLoginStatus from '@/utils/checkLoginStatus';
-import { onMounted, ref } from 'vue';
-const loginStatus = ref(false)
-
-onMounted(()=>{
-    loginStatus.value = CheckLoginStatus(uni.getStorageSync("tokenStr"))
-})
+import Register from '@/components/register.vue';
+import { ref } from 'vue';
+const mode = ref(true)
 </script>
 
 <style scoped>
