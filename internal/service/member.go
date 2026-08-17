@@ -11,17 +11,20 @@ import (
 )
 
 type MemberService struct {
-	db *gorm.DB
+	db      *gorm.DB
+	payment *PaymentService
 }
 
-func NewMemberService(db *gorm.DB) *MemberService {
-	return &MemberService{db: db}
+func NewMemberService(db *gorm.DB, payment *PaymentService) *MemberService {
+	return &MemberService{db: db, payment: payment}
 }
 
 var (
-	ErrUniqueErr       = models.NewBusinessError(400, "已添加过该数据")
-	ErrNoSuchData      = models.NewBusinessError(400, "找不到数据")
-	ErrExistMemberData = models.NewBusinessError(400, "会员数据已经存在")
+	ErrUniqueErr             = models.NewBusinessError(400, "已添加过该数据")
+	ErrNoSuchData            = models.NewBusinessError(400, "找不到数据")
+	ErrExistMemberData       = models.NewBusinessError(400, "会员数据已经存在")
+	ErrPaidOrderCannotCancel = models.NewBusinessError(400, "已支付订单不可取消")
+	ErrOrderFinished         = models.NewBusinessError(400, "订单已完成")
 )
 
 // 针对MemberPlan的操作
@@ -135,8 +138,7 @@ func (s *MemberService) GenMemberPlanOrder(ctx context.Context, userId string, p
 		}
 		checkPlan, e = gorm.G[models.MemberPlan](tx).Select("uuid").Where("uuid = ?", planId).Limit(1).Find(ctx)
 		if e != nil {
-			log.Println(e.Error())
-			return e
+			return models.NewDatabaseErr(e)
 		}
 		if len(checkPlan) == 0 {
 			return ErrNoSuchData
@@ -156,12 +158,13 @@ func (s *MemberService) GenMemberPlanOrder(ctx context.Context, userId string, p
 // 针对MemberList的操作
 func (s *MemberService) GetAllMemberListData(ctx context.Context, page int, pageSize int) ([]models.MemberListRes, error) {
 	var datas []models.MemberListRes
-	tx := s.db.Model(&models.MemberList{}).Select(&models.MemberListRes{}).WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
+	tx := s.db.Model(&models.MemberList{}).Select("uuid, user_id, status, end_at").
+		WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
 	if tx.Error != nil {
 		return nil, models.NewDatabaseErr(tx.Error)
 	}
 	if len(datas) == 0 {
-		return nil, ErrNoSuchData
+		return nil, nil
 	}
 	return datas, nil
 }
@@ -261,7 +264,9 @@ func (s *MemberService) UpdateMemberListData(ctx context.Context, memberId strin
 // 针对MemberOrder的操作
 func (s *MemberService) GetUserMemberOrderData(ctx context.Context, userId string, page int, pageSize int) ([]models.MemberOrderRes, error) {
 	var datas []models.MemberOrderRes
-	tx := s.db.Model(&models.MemberOrders{}).WithContext(ctx).Select(&models.MemberOrderRes{}).Where("user_id = ?", userId).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
+	tx := s.db.Model(&models.MemberOrders{}).WithContext(ctx).
+		Select("uuid, plan_id, user_id, value, status").Where("user_id = ?", userId).
+		Scopes(utils.Paginate(page, pageSize)).Find(&datas)
 	if tx.Error != nil {
 		return nil, models.NewDatabaseErr(tx.Error)
 	}
@@ -297,8 +302,8 @@ func (s *MemberService) GetUserMemberOrderDataById(ctx context.Context, userId s
 
 func (s *MemberService) GetAllMemberOrderData(ctx context.Context, page int, pageSize int) ([]models.MemberOrderRes, error) {
 	var datas []models.MemberOrderRes
-	// rawData, err := gorm.G[models.MemberOrders](s.db).Scopes(utils.Paginate(page, pageSize)).Find(ctx)
-	tx := s.db.Model(&models.MemberOrders{}).WithContext(ctx).Select(&models.MemberOrderRes{}).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
+	tx := s.db.Model(&models.MemberOrders{}).WithContext(ctx).
+		Select("uuid, plan_id, user_id, value, status").Scopes(utils.Paginate(page, pageSize)).Find(&datas)
 	if tx.Error != nil {
 		log.Println(tx.Error.Error())
 		return nil, models.NewDatabaseErr(tx.Error)
@@ -333,7 +338,7 @@ func (s *MemberService) UpdateMemberOrderData(ctx context.Context, orderId strin
 	var res int
 	var newData models.MemberOrders
 	newData.Status = status
-	if status == 1 {
+	if status == models.MemberOrderStatusCanceled {
 		newData.Value = 0
 	} else {
 		newData.Value = value
@@ -373,12 +378,20 @@ func (s *MemberService) CancelMemberOrder(ctx context.Context, userId string, or
 			return ErrNoSuchData
 		}
 		data := check[0]
-		if data.UserId != userId || data.Status == -1 {
+		if data.UserId != userId || data.Status == models.MemberOrderStatusCanceled {
 			return ErrWrongUser
 		}
+		if data.Status == models.MemberOrderStatusPaid {
+			return ErrPaidOrderCannotCancel
+		}
 		// 实际的更新操作
-		res, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Update(ctx, "status", -1)
+		res, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Update(ctx, "status", models.MemberOrderStatusCanceled)
 		if e != nil {
+			return models.NewDatabaseErr(e)
+		}
+		// 联动作废该订单的未支付支付单
+		if _, e := gorm.G[models.Pay](tx).Where("business_id = ? AND status = ?", orderId, models.PayStatusPending).
+			Update(ctx, "status", models.PayStatusVoid); e != nil {
 			return models.NewDatabaseErr(e)
 		}
 		return nil
@@ -389,12 +402,11 @@ func (s *MemberService) CancelMemberOrder(ctx context.Context, userId string, or
 	return res, nil
 }
 
-func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, orderId string) (string, error) {
-	var newData models.Pay
-	newData.BusinessType = "member"
-	newData.BusinessId = orderId
-	newData.Status = 0
-	newData.ExpireTime = time.Now().Add(30 * time.Minute).Unix()
+func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, orderId string) (*PaymentResult, error) {
+	if !s.payment.GatewayConfigured() {
+		return nil, ErrGatewayMissing
+	}
+	var pay *models.Pay
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var check []models.MemberOrders
 		check, e := gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Limit(1).Find(ctx)
@@ -405,8 +417,23 @@ func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, or
 			return ErrNoSuchData
 		}
 		data := check[0]
-		if data.UserId != userId || data.Status != 0 {
+		if data.UserId != userId {
 			return ErrWrongUser
+		}
+		if data.Status == models.MemberOrderStatusPaid {
+			return ErrOrderFinished
+		}
+		if data.Status != models.MemberOrderStatusCreated && data.Status != models.MemberOrderStatusPendingPay {
+			return ErrWrongUser
+		}
+		// 已有有效待支付单则幂等返回
+		if data.Status == models.MemberOrderStatusPendingPay {
+			if active, err := s.payment.FindActivePendingPay(ctx, tx, orderId); err != nil {
+				return err
+			} else if active != nil {
+				pay = active
+				return nil
+			}
 		}
 		// 通过planId获取价格
 		var planData models.MemberPlan
@@ -415,21 +442,20 @@ func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, or
 			log.Println(e)
 			return ErrNoSuchData
 		}
-		newData.Value = planData.Value
-		// 新建支付订单
-		e = gorm.G[models.Pay](tx).Create(ctx, &newData)
+		// 修改会员订单的状态为待支付
+		_, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Update(ctx, "status", models.MemberOrderStatusPendingPay)
 		if e != nil {
 			return models.NewDatabaseErr(e)
 		}
-		// 修改会员订单的状态(2为待支付)
-		_, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Update(ctx, "status", 2)
+		// 幂等创建支付单
+		pay, e = s.payment.CreatePay(ctx, tx, models.PayBusinessMember, orderId, userId, planData.Value)
 		if e != nil {
-			return models.NewDatabaseErr(e)
+			return e
 		}
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return newData.UUID, nil
+	return s.payment.BuildResult(ctx, pay)
 }

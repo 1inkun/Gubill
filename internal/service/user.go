@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/1inkun/Gubill/internal/models"
 	"github.com/1inkun/Gubill/internal/utils"
@@ -24,7 +25,7 @@ var (
 	ErrWrongEmaiOrUserName = models.NewBusinessError(401, "用户名或邮箱已被占用")
 )
 
-func (s *UserService) Login(ctx context.Context, username string, password string) (string, error) {
+func (s *UserService) Login(ctx context.Context, username string, password string, ip string) (string, error) {
 	var userDatas []models.User
 	userDatas, err := gorm.G[models.User](s.db).Where("username = ?", username).Limit(1).Find(ctx)
 	if err != nil {
@@ -38,6 +39,13 @@ func (s *UserService) Login(ctx context.Context, username string, password strin
 	if _, err := utils.CheckPassword(userData.PasswordHash, password); err != nil {
 		return "", ErrWrongPasswd
 	}
+	// 记录登录 IP 与时间
+	if err := s.db.Model(&models.User{}).Where("uuid = ?", userData.UUID).Updates(map[string]any{
+		"last_login_ip":   ip,
+		"last_login_date": time.Now().Unix(),
+	}).Error; err != nil {
+		return "", models.NewDatabaseErr(err)
+	}
 	// 登录成功,生成JWT
 	tokenString, err := utils.GenNewJWT(userData)
 	if err != nil {
@@ -47,7 +55,7 @@ func (s *UserService) Login(ctx context.Context, username string, password strin
 	return tokenString, nil
 }
 
-func (s *UserService) Register(ctx context.Context, username string, nickname string, password string, email string) (string, error) {
+func (s *UserService) Register(ctx context.Context, username string, nickname string, password string, email string, ip string) (string, error) {
 	var newData models.User
 	passwordHash, err := utils.GenNewPasswdHash(password)
 	if err != nil {
@@ -58,6 +66,8 @@ func (s *UserService) Register(ctx context.Context, username string, nickname st
 	newData.NickName = nickname
 	newData.PasswordHash = passwordHash
 	newData.Email = email
+	newData.RegisterIP = ip
+	newData.RegisterDate = time.Now().Unix()
 	// 直接插入数据,利用唯一性标签处理用户名和邮箱占用
 	err = gorm.G[models.User](s.db).Create(ctx, &newData)
 	if err != nil {

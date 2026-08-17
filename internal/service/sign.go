@@ -11,12 +11,14 @@ import (
 )
 
 type SignService struct {
-	db *gorm.DB
+	db      *gorm.DB
+	payment *PaymentService
 }
 
-func NewSignService(db *gorm.DB) *SignService {
+func NewSignService(db *gorm.DB, payment *PaymentService) *SignService {
 	return &SignService{
-		db: db,
+		db:      db,
+		payment: payment,
 	}
 }
 
@@ -66,7 +68,8 @@ func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (s
 
 func (s *SignService) GetAllSignData(ctx context.Context, page int, pageSize int) ([]models.SignRes, error) {
 	var datas []models.SignRes
-	tx := s.db.Model(&models.Sign{}).Select(&models.SignRes{}).WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
+	tx := s.db.Model(&models.Sign{}).Select("uuid, user_id, start_at, end_at, status, value").
+		WithContext(ctx).Scopes(utils.Paginate(page, pageSize)).Find(&datas)
 	if tx.Error != nil {
 		log.Println(tx.Error.Error())
 		return nil, models.NewDatabaseErr(tx.Error)
@@ -131,7 +134,7 @@ func (s *SignService) GetSignData(ctx context.Context, userId string, signId str
 		return models.SignRes{}, models.NewDatabaseErr(err)
 	}
 	if len(signData) == 0 {
-		return models.SignRes{}, nil
+		return models.SignRes{}, ErrSignDataNoExist
 	}
 	data := signData[0]
 	if data.UserId != userId {
@@ -150,13 +153,12 @@ func (s *SignService) GetSignData(ctx context.Context, userId string, signId str
 
 func (s *SignService) UpdateSignData(ctx context.Context, signId string, status int64, value int64) (int, error) {
 	var res int
-	var newData models.Sign
-	newData.Status = status
-	if newData.Status != 0 {
-		newData.EndAt = time.Now().Unix()
-		newData.Value = value
+	updates := map[string]any{"status": status, "value": value}
+	if status == 0 {
+		// 重置为进行中时清空旧的结束时间与金额
+		updates["end_at"] = 0
 	} else {
-		newData.Value = value
+		updates["end_at"] = time.Now().Unix()
 	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// 检查是否存在对应的数据
@@ -169,7 +171,11 @@ func (s *SignService) UpdateSignData(ctx context.Context, signId string, status 
 			return ErrNoSuchData
 		}
 		// 实际更新
-		res, e = gorm.G[models.Sign](tx).Where("uuid = ?", signId).Updates(ctx, newData)
+		tx2 := tx.Model(&models.Sign{}).Where("uuid = ?", signId).Updates(updates)
+		if tx2.Error != nil {
+			return models.NewDatabaseErr(tx2.Error)
+		}
+		res = int(tx2.RowsAffected)
 		return nil
 	})
 	if err != nil {
@@ -178,14 +184,15 @@ func (s *SignService) UpdateSignData(ctx context.Context, signId string, status 
 	return res, nil
 }
 
-func (s *SignService) FinishSignData(ctx context.Context, userId string, signId string) (string, error) {
-	var newPay models.Pay
-	newPay.BusinessType = "sign"
-	newPay.Status = 0
+func (s *SignService) FinishSignData(ctx context.Context, userId string, signId string) (*PaymentResult, error) {
+	if !s.payment.GatewayConfigured() {
+		return nil, ErrGatewayMissing
+	}
 	now := time.Now().Unix()
+	var pay *models.Pay
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var signData []models.Sign
-		signData, e := gorm.G[models.Sign](tx).Where("uuid = ? AND status = 0", signId).Limit(1).Find(ctx)
+		signData, e := gorm.G[models.Sign](tx).Where("uuid = ?", signId).Limit(1).Find(ctx)
 		if e != nil {
 			return models.NewDatabaseErr(e)
 		}
@@ -196,31 +203,41 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		if data.UserId != userId {
 			return ErrWrongUser
 		}
+		if data.Status == models.SignStatusFinished {
+			return ErrAlreadyFinished
+		}
+		if data.Status != models.SignStatusActive && data.Status != models.SignStatusPendingPay {
+			return ErrSignDataNoExist
+		}
+		// 已有有效待支付单则幂等返回（支付过期后重新结算时会走到下方刷新逻辑）
+		if data.Status == models.SignStatusPendingPay {
+			if active, err := s.payment.FindActivePendingPay(ctx, tx, signId); err != nil {
+				return err
+			} else if active != nil {
+				pay = active
+				return nil
+			}
+		}
 		duration := now - data.StartAt
-		totalPrice := utils.CalculateTotalPrice(duration, 500)
-		// 构造支付订单数据,构造完成后插入数据
-		newPay.BusinessId = data.UUID
-		newPay.Value = int64(totalPrice)
-		newPay.ExpireTime = time.Now().Add(30 * time.Minute).Unix()
-		// 插入数据
-		e = gorm.G[models.Pay](tx).Create(ctx, &newPay)
+		totalPrice := int64(utils.CalculateTotalPrice(duration, SinglePrice()))
+		// 更新签到单为待支付
+		_, e = gorm.G[models.Sign](tx).Where("uuid = ?", signId).Updates(ctx, models.Sign{
+			Status: models.SignStatusPendingPay,
+			EndAt:  now,
+			Value:  totalPrice,
+		})
 		if e != nil {
 			return models.NewDatabaseErr(e)
 		}
-		// 更新订单表中的数据
-		var updateSign models.Sign
-		// 更新为2表示待支付
-		updateSign.Status = 2
-		updateSign.EndAt = now
-		updateSign.Value = int64(totalPrice)
-		_, e = gorm.G[models.Sign](tx).Where("uuid = ?", signId).Updates(ctx, updateSign)
+		// 幂等创建支付单
+		pay, e = s.payment.CreatePay(ctx, tx, models.PayBusinessSign, data.UUID, userId, totalPrice)
 		if e != nil {
-			return models.NewDatabaseErr(e)
+			return e
 		}
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return newPay.UUID, nil
+	return s.payment.BuildResult(ctx, pay)
 }
