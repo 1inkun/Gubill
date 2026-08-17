@@ -11,10 +11,10 @@ import (
 )
 
 type JWTClaims struct {
-	UserId   string
-	Username string
-	Nickname string
-	Role     string
+	UserId   string `json:"userId"`
+	Username string `json:"username"`
+	Nickname string `json:"nickname"`
+	Role     string `json:"role"`
 	jwt.RegisteredClaims
 }
 

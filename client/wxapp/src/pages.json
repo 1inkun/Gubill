@@ -1,0 +1,54 @@
+{
+	"pages": [
+		{
+			"path": "pages/index",
+			"style": {
+				"navigationBarTitleText": "首页"
+			}
+		},
+		{
+			"path": "pages/sign",
+			"style": {
+				"navigationBarTitleText": "签到"
+			}
+		},
+		{
+			"path": "pages/user",
+			"style": {
+				"navigationBarTitleText": "个人信息"
+			}
+		},
+		{
+			"path": "pages/login",
+			"style": {
+				"navigationBarTitleText": "登录"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "uni-app",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#7A7E83",
+		"selectedColor": "#3cc51f",
+		"borderStyle": "black",
+		"backgroundColor": "#ffffff",
+		"list": [
+			{
+				"pagePath": "pages/index",
+				"text": "首页"
+			},
+			{
+				"pagePath": "pages/sign",
+				"text": "签到"
+			},
+			{
+				"pagePath": "pages/user",
+				"text": "用户"
+			}
+		]
+	}
+}

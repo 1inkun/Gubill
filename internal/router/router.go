@@ -2,10 +2,12 @@ package router
 
 import (
 	"os"
+	"time"
 
 	"github.com/1inkun/Gubill/internal/handler"
 	"github.com/1inkun/Gubill/internal/middlewares"
 	"github.com/1inkun/Gubill/internal/service"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -19,6 +21,16 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 		gin.SetMode(ginMode)
 	}
 	r := gin.Default()
+	// Cors
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	// 中间件
 	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
 
