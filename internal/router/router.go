@@ -11,7 +11,7 @@ import (
 )
 
 // 面向用户开放的接口
-func InitRouter(db *gorm.DB) *gin.Engine {
+func InitRouter(db *gorm.DB, paymentService *service.PaymentService) *gin.Engine {
 	ginMode := os.Getenv("GinMode")
 	if ginMode == "" {
 		gin.SetMode("debug")
@@ -29,6 +29,7 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 	userHandler := handler.NewUserHandler(userService)
 	sighHandler := handler.NewSignHandler(signService)
 	memberHandler := handler.NewMemberHandler(memberService)
+	payHandler := handler.NewPayHandler(paymentService)
 
 	apiv1 := r.Group("/api/v1")
 	user := apiv1.Group("/user")
@@ -73,11 +74,18 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 		// 结算用户自己的**会员订单**
 		memberOrder.POST("/:order_id", memberHandler.FinishMemberOrder)
 	}
+	pay := apiv1.Group("/pay")
+	{
+		authed := pay.Group("")
+		authed.Use(middlewares.CheckJWT())
+		authed.GET("", payHandler.GetUserPays)
+		authed.GET("/:pay_id", payHandler.GetUserPay)
+	}
 	return r
 }
 
 // 面向管理员开放的接口
-func InitAdminRouter(db *gorm.DB) *gin.Engine {
+func InitAdminRouter(db *gorm.DB, paymentService *service.PaymentService) *gin.Engine {
 	ginMode := os.Getenv("GinMode")
 	if ginMode == "" {
 		gin.SetMode("debug")
@@ -85,15 +93,16 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 		gin.SetMode(ginMode)
 	}
 	r := gin.Default()
-	r.Use(middlewares.RateLimiter(), middlewares.CheckJWT(), middlewares.ErrHandler())
+	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
 	// 构造Service
 	memberService := service.NewMemberService(db)
 	signService := service.NewSignService(db)
 	// 构造Handler
 	memberHandler := handler.NewMemberHandler(memberService)
 	signHandler := handler.NewSignHandler(signService)
+	payHandler := handler.NewPayHandler(paymentService)
 
-	apiv1Admin := r.Group("/api/v1/")
+	apiv1Admin := r.Group("/api/v1/", middlewares.CheckJWT())
 	// 会员服务相关的管理接口
 	memberPlan := apiv1Admin.Group("/member_plan")
 	{
@@ -124,6 +133,13 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 		sign.GET("", signHandler.GetAllSignData)
 		sign.GET("/:sign_id", signHandler.GetSignDataBySignId)
 		sign.PUT("/:sign_id", signHandler.UpdateSignData)
+	}
+	pay := apiv1Admin.Group("/pay")
+	{
+		pay.GET("", payHandler.GetAllPays)
+		pay.GET("/:pay_id", payHandler.GetPay)
+		pay.POST("/:pay_id/confirm", payHandler.ConfirmPay)
+		pay.POST("/:pay_id/refund", payHandler.RefundPay)
 	}
 	return r
 }

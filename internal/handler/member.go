@@ -105,7 +105,7 @@ func (h *MemberHandler) GetAllMemberOrderData(c *gin.Context) {
 		return
 	}
 	pagin := struct {
-		Page     int `form:"page" binding:"required"`
+		Page     int `form:"page"`
 		PageSize int `form:"page_size"`
 	}{}
 	if err := c.ShouldBindQuery(&pagin); err != nil {
@@ -197,7 +197,7 @@ func (h *MemberHandler) GetAllMemberListData(c *gin.Context) {
 		return
 	}
 	pagin := struct {
-		Page     int `form:"page" binding:"required"`
+		Page     int `form:"page"`
 		PageSize int `form:"page_size"`
 	}{}
 	if err := c.ShouldBindQuery(&pagin); err != nil {
@@ -372,7 +372,7 @@ func (h *MemberHandler) GetUserMemberOrderData(c *gin.Context) {
 	}
 	// 数据量较大,可能要分页查询
 	pagin := struct {
-		Page     int `form:"page" binding:"required"`
+		Page     int `form:"page"`
 		PageSize int `form:"page_size"`
 	}{}
 	err := c.ShouldBindQuery(&pagin)
