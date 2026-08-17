@@ -18,61 +18,30 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func newTestPaymentService(db *gorm.DB, expireMinutes int64) *PaymentService {
-	return NewPaymentService(db, testutil.FakeGatewayInstance(), expireMinutes)
+func newTestPaymentService(db *gorm.DB) *PaymentService {
+	return NewPaymentService(db, testutil.FakeGatewayInstance())
 }
 
-func mustCreatePay(t *testing.T, ps *PaymentService, db *gorm.DB, businessType, businessId, userId string, value int64) *models.Pay {
+// mustCreatePay 直接写入一条待支付支付单（业务服务结算时也会这样生成 pays）。
+func mustCreatePay(t *testing.T, db *gorm.DB, businessType, businessId, userId string, value int64) *models.Pay {
 	t.Helper()
-	pay, err := ps.CreatePay(context.Background(), db, businessType, businessId, userId, value)
-	if err != nil {
+	pay := models.Pay{
+		UserId:       userId,
+		BusinessType: businessType,
+		BusinessId:   businessId,
+		Value:        value,
+		Status:       models.PayStatusPending,
+		ExpireTime:   time.Now().Unix() + 30*60,
+	}
+	if err := gorm.G[models.Pay](db).Create(context.Background(), &pay); err != nil {
 		t.Fatalf("创建支付单失败: %s", err.Error())
 	}
-	return pay
-}
-
-func TestCreatePayIdempotentAndRebuild(t *testing.T) {
-	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
-	ctx := context.Background()
-
-	p1 := mustCreatePay(t, ps, db, "sign", "b1", "u1", 100)
-	p2 := mustCreatePay(t, ps, db, "sign", "b1", "u1", 100)
-	if p1.UUID != p2.UUID {
-		t.Fatalf("幂等创建应返回同一支付单: %s vs %s", p1.UUID, p2.UUID)
-	}
-	if p1.ExpireTime-time.Now().Unix() != 30*60 {
-		t.Errorf("过期时间应为 30 分钟后: %d", p1.ExpireTime)
-	}
-
-	// 过期后重建：旧单作废，生成新单
-	if err := db.Model(&models.Pay{}).Where("uuid = ?", p1.UUID).Update("expire_time", time.Now().Unix()-1).Error; err != nil {
-		t.Fatalf("修改过期时间失败: %s", err.Error())
-	}
-	p3 := mustCreatePay(t, ps, db, "sign", "b1", "u1", 100)
-	if p3.UUID == p1.UUID {
-		t.Fatal("过期后应新建支付单")
-	}
-	var oldPay models.Pay
-	if err := db.First(&oldPay, "uuid = ?", p1.UUID).Error; err != nil {
-		t.Fatalf("查询旧单失败: %s", err.Error())
-	}
-	if oldPay.Status != models.PayStatusVoid {
-		t.Errorf("旧单应作废, got %d", oldPay.Status)
-	}
-
-	// 业务单已有已完成支付单时不允许再建
-	if err := db.Model(&models.Pay{}).Where("uuid = ?", p3.UUID).Update("status", models.PayStatusPaid).Error; err != nil {
-		t.Fatalf("更新状态失败: %s", err.Error())
-	}
-	if _, err := ps.CreatePay(ctx, db, "sign", "b1", "u1", 100); err == nil {
-		t.Fatal("已存在完成支付单时应报错")
-	}
+	return &pay
 }
 
 func TestConfirmPaidAndBusinessLink(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
+	ps := newTestPaymentService(db)
 	ctx := context.Background()
 
 	sign := models.Sign{
@@ -85,7 +54,7 @@ func TestConfirmPaidAndBusinessLink(t *testing.T) {
 	if err := gorm.G[models.Sign](db).Create(ctx, &sign); err != nil {
 		t.Fatalf("创建签到单失败: %s", err.Error())
 	}
-	pay := mustCreatePay(t, ps, db, "sign", sign.UUID, "u1", 100)
+	pay := mustCreatePay(t, db, "sign", sign.UUID, "u1", 100)
 
 	if err := ps.ConfirmPaid(ctx, pay.UUID); err != nil {
 		t.Fatalf("确认支付失败: %s", err.Error())
@@ -112,11 +81,11 @@ func TestConfirmPaidAndBusinessLink(t *testing.T) {
 
 func TestConfirmPaidStateMachine(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
+	ps := newTestPaymentService(db)
 	ctx := context.Background()
 
 	// 已过期
-	expired := mustCreatePay(t, ps, db, "sign", "b2", "u1", 100)
+	expired := mustCreatePay(t, db, "sign", "b2", "u1", 100)
 	if err := db.Model(&models.Pay{}).Where("uuid = ?", expired.UUID).Update("expire_time", time.Now().Unix()-10).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +99,7 @@ func TestConfirmPaidStateMachine(t *testing.T) {
 	}
 
 	// 已作废
-	vo := mustCreatePay(t, ps, db, "sign", "b3", "u1", 100)
+	vo := mustCreatePay(t, db, "sign", "b3", "u1", 100)
 	if err := db.Model(&models.Pay{}).Where("uuid = ?", vo.UUID).Update("status", models.PayStatusVoid).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +108,7 @@ func TestConfirmPaidStateMachine(t *testing.T) {
 	}
 
 	// 已退款
-	rf := mustCreatePay(t, ps, db, "sign", "b4", "u1", 100)
+	rf := mustCreatePay(t, db, "sign", "b4", "u1", 100)
 	if err := db.Model(&models.Pay{}).Where("uuid = ?", rf.UUID).Update("status", models.PayStatusRefunded).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -150,15 +119,15 @@ func TestConfirmPaidStateMachine(t *testing.T) {
 
 func TestRefundRules(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
+	ps := newTestPaymentService(db)
 	ctx := context.Background()
 
-	pending := mustCreatePay(t, ps, db, "sign", "b9", "u1", 100)
+	pending := mustCreatePay(t, db, "sign", "b9", "u1", 100)
 	if err := ps.RefundPay(ctx, pending.UUID); err != ErrPayNotPaid {
 		t.Errorf("待支付单退款应报 ErrPayNotPaid, got %v", err)
 	}
 
-	paid := mustCreatePay(t, ps, db, "sign", "b10", "u1", 100)
+	paid := mustCreatePay(t, db, "sign", "b10", "u1", 100)
 	if err := ps.ConfirmPaid(ctx, paid.UUID); err != nil {
 		t.Fatal(err)
 	}
@@ -174,17 +143,16 @@ func TestRefundRules(t *testing.T) {
 		t.Errorf("重复退款应报 ErrPayRefunded, got %v", err)
 	}
 
-	vo := mustCreatePay(t, ps, db, "sign", "b11", "u1", 100)
+	vo := mustCreatePay(t, db, "sign", "b11", "u1", 100)
 	db.Model(&models.Pay{}).Where("uuid = ?", vo.UUID).Update("status", models.PayStatusVoid)
 	if err := ps.RefundPay(ctx, vo.UUID); err != ErrPayVoided {
 		t.Errorf("作废单退款应报 ErrPayVoided, got %v", err)
 	}
 }
 
-func TestCancelMemberOrderVoidsPay(t *testing.T) {
+func TestCancelMemberOrder(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
-	ms := NewMemberService(db, ps)
+	ms := NewMemberService(db)
 	ctx := context.Background()
 
 	plan := models.MemberPlan{Name: "月卡", Type: "month", Value: 3000, Description: "一个月"}
@@ -195,7 +163,7 @@ func TestCancelMemberOrderVoidsPay(t *testing.T) {
 	if err := gorm.G[models.MemberOrders](db).Create(ctx, &order); err != nil {
 		t.Fatal(err)
 	}
-	pay := mustCreatePay(t, ps, db, "member", order.UUID, "u1", 3000)
+	pay := mustCreatePay(t, db, "member", order.UUID, "u1", 3000)
 
 	n, err := ms.CancelMemberOrder(ctx, "u1", order.UUID)
 	if err != nil || n == 0 {
@@ -206,10 +174,11 @@ func TestCancelMemberOrderVoidsPay(t *testing.T) {
 	if orderDb.Status != models.MemberOrderStatusCanceled {
 		t.Errorf("订单应取消, got %d", orderDb.Status)
 	}
+	// 取消订单不操作 pays（支付单状态由支付模块独立管理）
 	var payDb models.Pay
 	db.First(&payDb, "uuid = ?", pay.UUID)
-	if payDb.Status != models.PayStatusVoid {
-		t.Errorf("支付单应联动作废, got %d", payDb.Status)
+	if payDb.Status != models.PayStatusPending {
+		t.Errorf("取消订单不应改动支付单状态, got %d", payDb.Status)
 	}
 
 	// 已支付订单不可取消
@@ -224,20 +193,20 @@ func TestCancelMemberOrderVoidsPay(t *testing.T) {
 
 func TestSignFinishFlow(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
-	ss := NewSignService(db, ps)
+	ss := NewSignService(db)
+	ps := newTestPaymentService(db)
 	ctx := context.Background()
 
 	sign := models.Sign{UserId: "u1", Status: models.SignStatusActive, StartAt: time.Now().Unix() - 3600}
 	if err := gorm.G[models.Sign](db).Create(ctx, &sign); err != nil {
 		t.Fatal(err)
 	}
-	res, err := ss.FinishSignData(ctx, "u1", sign.UUID)
+	payId, err := ss.FinishSignData(ctx, "u1", sign.UUID)
 	if err != nil {
 		t.Fatalf("结算失败: %s", err.Error())
 	}
-	if res.PayId == "" || res.PayUrl == "" || res.Value != 1000 {
-		t.Errorf("结算结果异常: %+v", res)
+	if payId == "" {
+		t.Fatal("结算应返回支付单 ID")
 	}
 	var signDb models.Sign
 	db.First(&signDb, "uuid = ?", sign.UUID)
@@ -245,61 +214,32 @@ func TestSignFinishFlow(t *testing.T) {
 		t.Errorf("签到单应为待支付, got %d", signDb.Status)
 	}
 	var payDb models.Pay
-	if err := db.Where("business_id = ?", sign.UUID).First(&payDb).Error; err != nil {
+	if err := db.Where("uuid = ?", payId).First(&payDb).Error; err != nil {
 		t.Fatalf("支付单应存在: %s", err.Error())
 	}
-
-	// 已结算但未支付可幂等重试，返回同一支付单
-	res2, err := ss.FinishSignData(ctx, "u1", sign.UUID)
-	if err != nil {
-		t.Fatalf("幂等重试结算失败: %s", err.Error())
-	}
-	if res2.PayId != res.PayId {
-		t.Errorf("重复结算应返回同一支付单, got %s want %s", res2.PayId, res.PayId)
-	}
-}
-
-func TestSignResettleAfterExpiry(t *testing.T) {
-	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
-	ss := NewSignService(db, ps)
-	ctx := context.Background()
-
-	sign := models.Sign{UserId: "u1", Status: models.SignStatusActive, StartAt: time.Now().Unix() - 3600}
-	if err := gorm.G[models.Sign](db).Create(ctx, &sign); err != nil {
-		t.Fatal(err)
-	}
-	res1, err := ss.FinishSignData(ctx, "u1", sign.UUID)
-	if err != nil {
-		t.Fatalf("首次结算失败: %s", err.Error())
+	if payDb.Value != 1000 || payDb.BusinessType != models.PayBusinessSign {
+		t.Errorf("支付单数据异常: %+v", payDb)
 	}
 
-	// 支付单过期后重新结算：旧单作废，生成新单
-	if err := db.Model(&models.Pay{}).Where("uuid = ?", res1.PayId).Update("expire_time", time.Now().Unix()-1).Error; err != nil {
-		t.Fatal(err)
+	// 已结算的签到单不可重复结算（上游语义）
+	if _, err := ss.FinishSignData(ctx, "u1", sign.UUID); err != ErrSignDataNoExist {
+		t.Errorf("重复结算应报 ErrSignDataNoExist, got %v", err)
 	}
-	res2, err := ss.FinishSignData(ctx, "u1", sign.UUID)
-	if err != nil {
-		t.Fatalf("过期后重新结算失败: %s", err.Error())
+
+	// 支付确认后签到联动完成
+	if err := ps.ConfirmPaid(ctx, payId); err != nil {
+		t.Fatalf("确认支付失败: %s", err.Error())
 	}
-	if res2.PayId == res1.PayId {
-		t.Fatal("过期后应生成新支付单")
-	}
-	var oldPay models.Pay
-	db.First(&oldPay, "uuid = ?", res1.PayId)
-	if oldPay.Status != models.PayStatusVoid {
-		t.Errorf("旧支付单应作废, got %d", oldPay.Status)
-	}
-	// 新支付单可正常确认
-	if err := ps.ConfirmPaid(ctx, res2.PayId); err != nil {
-		t.Fatalf("新支付单确认失败: %s", err.Error())
+	db.First(&signDb, "uuid = ?", sign.UUID)
+	if signDb.Status != models.SignStatusFinished {
+		t.Errorf("签到单应联动为已完成, got %d", signDb.Status)
 	}
 }
 
 func TestMemberFinishFlow(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
-	ms := NewMemberService(db, ps)
+	ms := NewMemberService(db)
+	ps := newTestPaymentService(db)
 	ctx := context.Background()
 
 	plan := models.MemberPlan{Name: "周卡", Type: "week", Value: 2000, Description: "一周"}
@@ -310,20 +250,25 @@ func TestMemberFinishFlow(t *testing.T) {
 	if err := gorm.G[models.MemberOrders](db).Create(ctx, &order); err != nil {
 		t.Fatal(err)
 	}
-	res, err := ms.FinishMemberOrder(ctx, "u1", order.UUID)
+	payId, err := ms.FinishMemberOrder(ctx, "u1", order.UUID)
 	if err != nil {
 		t.Fatalf("会员结算失败: %s", err.Error())
 	}
-	if res.PayId == "" || res.Value != 2000 {
-		t.Errorf("结算结果异常: %+v", res)
+	if payId == "" {
+		t.Fatal("结算应返回支付单 ID")
 	}
 	var orderDb models.MemberOrders
 	db.First(&orderDb, "uuid = ?", order.UUID)
 	if orderDb.Status != models.MemberOrderStatusPendingPay {
 		t.Errorf("订单应为待支付, got %d", orderDb.Status)
 	}
+	var payDb models.Pay
+	db.First(&payDb, "uuid = ?", payId)
+	if payDb.Value != 2000 || payDb.BusinessType != models.PayBusinessMember {
+		t.Errorf("支付单数据异常: %+v", payDb)
+	}
 	// 确认支付后订单联动为已支付
-	if err := ps.ConfirmPaid(ctx, res.PayId); err != nil {
+	if err := ps.ConfirmPaid(ctx, payId); err != nil {
 		t.Fatalf("确认支付失败: %s", err.Error())
 	}
 	db.First(&orderDb, "uuid = ?", order.UUID)
@@ -332,47 +277,12 @@ func TestMemberFinishFlow(t *testing.T) {
 	}
 }
 
-func TestMemberResettleAfterExpiry(t *testing.T) {
-	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
-	ms := NewMemberService(db, ps)
-	ctx := context.Background()
-
-	plan := models.MemberPlan{Name: "周卡", Type: "week", Value: 2000, Description: "一周"}
-	if err := gorm.G[models.MemberPlan](db).Create(ctx, &plan); err != nil {
-		t.Fatal(err)
-	}
-	order := models.MemberOrders{PlanId: plan.UUID, UserId: "u1", Status: models.MemberOrderStatusCreated}
-	if err := gorm.G[models.MemberOrders](db).Create(ctx, &order); err != nil {
-		t.Fatal(err)
-	}
-	res1, err := ms.FinishMemberOrder(ctx, "u1", order.UUID)
-	if err != nil {
-		t.Fatalf("首次结算失败: %s", err.Error())
-	}
-	if err := db.Model(&models.Pay{}).Where("uuid = ?", res1.PayId).Update("expire_time", time.Now().Unix()-1).Error; err != nil {
-		t.Fatal(err)
-	}
-	res2, err := ms.FinishMemberOrder(ctx, "u1", order.UUID)
-	if err != nil {
-		t.Fatalf("过期后重新结算失败: %s", err.Error())
-	}
-	if res2.PayId == res1.PayId {
-		t.Fatal("过期后应生成新支付单")
-	}
-	var oldPay models.Pay
-	db.First(&oldPay, "uuid = ?", res1.PayId)
-	if oldPay.Status != models.PayStatusVoid {
-		t.Errorf("旧支付单应作废, got %d", oldPay.Status)
-	}
-}
-
 func TestExpireSweeper(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	ps := newTestPaymentService(db, 30)
+	ps := newTestPaymentService(db)
 	ctx := context.Background()
 
-	pay := mustCreatePay(t, ps, db, "sign", "b12", "u1", 100)
+	pay := mustCreatePay(t, db, "sign", "b12", "u1", 100)
 	if err := db.Model(&models.Pay{}).Where("uuid = ?", pay.UUID).Update("expire_time", time.Now().Unix()-60).Error; err != nil {
 		t.Fatal(err)
 	}

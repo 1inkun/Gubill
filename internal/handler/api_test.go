@@ -31,14 +31,14 @@ func TestMain(m *testing.M) {
 func newUserRouter(t *testing.T) (*gorm.DB, http.Handler) {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
-	ps := service.NewPaymentService(db, testutil.FakeGatewayInstance(), 30)
+	ps := service.NewPaymentService(db, testutil.FakeGatewayInstance())
 	return db, router.InitRouter(db, ps)
 }
 
 func newAdminRouter(t *testing.T) (*gorm.DB, http.Handler) {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
-	ps := service.NewPaymentService(db, testutil.FakeGatewayInstance(), 30)
+	ps := service.NewPaymentService(db, testutil.FakeGatewayInstance())
 	return db, router.InitAdminRouter(db, ps)
 }
 
@@ -107,10 +107,13 @@ func TestUserPayFlow(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("结算失败: %d %s", w.Code, w.Body.String())
 	}
-	data := apiResult(t, w)["data"].(map[string]any)
-	payId := data["payId"].(string)
-	payUrl := data["payUrl"].(string)
-	if payId == "" || payUrl == "" {
+	rawData := apiResult(t, w)["data"]
+	data, ok := rawData.(map[string]any)
+	if !ok {
+		t.Fatalf("结算响应异常: %s", w.Body.String())
+	}
+	payId, _ := data["payId"].(string)
+	if payId == "" {
 		t.Fatalf("结算结果异常: %+v", data)
 	}
 
@@ -142,7 +145,7 @@ func TestUserPayFlow(t *testing.T) {
 
 func TestAdminPayFlow(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	ps := service.NewPaymentService(db, testutil.FakeGatewayInstance(), 30)
+	ps := service.NewPaymentService(db, testutil.FakeGatewayInstance())
 	userR := router.InitRouter(db, ps)
 	adminR := router.InitAdminRouter(db, ps)
 	ctx := context.Background()

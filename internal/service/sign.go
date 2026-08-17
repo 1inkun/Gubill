@@ -11,14 +11,12 @@ import (
 )
 
 type SignService struct {
-	db      *gorm.DB
-	payment *PaymentService
+	db *gorm.DB
 }
 
-func NewSignService(db *gorm.DB, payment *PaymentService) *SignService {
+func NewSignService(db *gorm.DB) *SignService {
 	return &SignService{
-		db:      db,
-		payment: payment,
+		db: db,
 	}
 }
 
@@ -27,7 +25,6 @@ var (
 	ErrUserNoExist     = models.NewBusinessError(400, "用户不存在")
 	ErrSignDataNoExist = models.NewBusinessError(400, "签到订单不存在")
 	ErrWrongUser       = models.NewBusinessError(400, "结算的用户有误")
-	ErrAlreadyFinished = models.NewBusinessError(400, "订单已经完成")
 )
 
 func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (string, error) {
@@ -184,15 +181,15 @@ func (s *SignService) UpdateSignData(ctx context.Context, signId string, status 
 	return res, nil
 }
 
-func (s *SignService) FinishSignData(ctx context.Context, userId string, signId string) (*PaymentResult, error) {
-	if !s.payment.GatewayConfigured() {
-		return nil, ErrGatewayMissing
-	}
+func (s *SignService) FinishSignData(ctx context.Context, userId string, signId string) (string, error) {
+	var newPay models.Pay
+	newPay.UserId = userId
+	newPay.BusinessType = models.PayBusinessSign
+	newPay.Status = models.PayStatusPending
 	now := time.Now().Unix()
-	var pay *models.Pay
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var signData []models.Sign
-		signData, e := gorm.G[models.Sign](tx).Where("uuid = ?", signId).Limit(1).Find(ctx)
+		signData, e := gorm.G[models.Sign](tx).Where("uuid = ? AND status = ?", signId, models.SignStatusActive).Limit(1).Find(ctx)
 		if e != nil {
 			return models.NewDatabaseErr(e)
 		}
@@ -203,23 +200,16 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		if data.UserId != userId {
 			return ErrWrongUser
 		}
-		if data.Status == models.SignStatusFinished {
-			return ErrAlreadyFinished
-		}
-		if data.Status != models.SignStatusActive && data.Status != models.SignStatusPendingPay {
-			return ErrSignDataNoExist
-		}
-		// 已有有效待支付单则幂等返回（支付过期后重新结算时会走到下方刷新逻辑）
-		if data.Status == models.SignStatusPendingPay {
-			if active, err := s.payment.FindActivePendingPay(ctx, tx, signId); err != nil {
-				return err
-			} else if active != nil {
-				pay = active
-				return nil
-			}
-		}
 		duration := now - data.StartAt
 		totalPrice := int64(utils.CalculateTotalPrice(duration, SinglePrice()))
+		// 构造并写入支付单（业务终点：生成 pays）
+		newPay.BusinessId = data.UUID
+		newPay.Value = totalPrice
+		newPay.ExpireTime = now + PayExpireSeconds()
+		e = gorm.G[models.Pay](tx).Create(ctx, &newPay)
+		if e != nil {
+			return models.NewDatabaseErr(e)
+		}
 		// 更新签到单为待支付
 		_, e = gorm.G[models.Sign](tx).Where("uuid = ?", signId).Updates(ctx, models.Sign{
 			Status: models.SignStatusPendingPay,
@@ -229,15 +219,10 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		if e != nil {
 			return models.NewDatabaseErr(e)
 		}
-		// 幂等创建支付单
-		pay, e = s.payment.CreatePay(ctx, tx, models.PayBusinessSign, data.UUID, userId, totalPrice)
-		if e != nil {
-			return e
-		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return s.payment.BuildResult(ctx, pay)
+	return newPay.UUID, nil
 }

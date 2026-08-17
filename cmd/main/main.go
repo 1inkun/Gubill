@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -27,12 +26,11 @@ func main() {
 		log.Fatalf("数据库连接错误:%s", err.Error())
 	}
 	// 构造支付服务（网关注入点）
-	expireMinutes, _ := strconv.ParseInt(os.Getenv("PayExpireMinutes"), 10, 64)
 	// TODO(支付接入)：实现 internal/payment.Gateway（微信/支付宝）后，在此创建实例并注入：
 	//   gateway := payment.NewWechatGateway(/* 商户配置 */)   // 或支付宝实现
-	// 未接入前保持 nil：结算接口将返回"支付网关未配置"，管理端仍可手工确认收款/退款。
+	// 未接入前保持 nil：管理端仍可手工确认收款/退款。
 	var gateway payment.Gateway
-	paymentService := service.NewPaymentService(db, gateway, expireMinutes)
+	paymentService := service.NewPaymentService(db, gateway)
 	// 后台定时作废过期支付单
 	sweeperCtx, sweeperCancel := context.WithCancel(context.Background())
 	defer sweeperCancel()

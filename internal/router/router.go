@@ -23,8 +23,8 @@ func InitRouter(db *gorm.DB, paymentService *service.PaymentService) *gin.Engine
 	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
 
 	userService := service.NewUserService(db)
-	signService := service.NewSignService(db, paymentService)
-	memberService := service.NewMemberService(db, paymentService)
+	signService := service.NewSignService(db)
+	memberService := service.NewMemberService(db)
 
 	userHandler := handler.NewUserHandler(userService)
 	sighHandler := handler.NewSignHandler(signService)
@@ -95,8 +95,8 @@ func InitAdminRouter(db *gorm.DB, paymentService *service.PaymentService) *gin.E
 	r := gin.Default()
 	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
 	// 构造Service
-	memberService := service.NewMemberService(db, paymentService)
-	signService := service.NewSignService(db, paymentService)
+	memberService := service.NewMemberService(db)
+	signService := service.NewSignService(db)
 	// 构造Handler
 	memberHandler := handler.NewMemberHandler(memberService)
 	signHandler := handler.NewSignHandler(signService)

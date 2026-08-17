@@ -15,126 +15,28 @@ import (
 
 var (
 	ErrPayNoExist       = models.NewBusinessError(400, "支付单不存在")
-	ErrPayExist         = models.NewBusinessError(400, "该业务已存在支付单")
 	ErrPayAlreadyPaid   = models.NewBusinessError(400, "支付单已完成支付")
 	ErrPayExpired       = models.NewBusinessError(400, "支付单已过期")
 	ErrPayVoided        = models.NewBusinessError(400, "支付单已作废")
 	ErrPayRefunded      = models.NewBusinessError(400, "支付单已退款")
 	ErrPayNotPaid       = models.NewBusinessError(400, "支付单未支付，无法退款")
 	ErrPayOwnerMismatch = models.NewBusinessError(400, "无权查看该支付单")
-	ErrGatewayMissing   = models.NewBusinessError(503, "支付网关未配置，暂无法发起支付")
 )
 
-// PaymentResult 是结算接口返回给调用方的支付信息。
-type PaymentResult struct {
-	PayId      string `json:"payId"`
-	PayUrl     string `json:"payUrl"`
-	Value      int64  `json:"value"`
-	Status     int64  `json:"status"`
-	ExpireTime int64  `json:"expireTime"`
-}
-
-// PaymentService 负责支付单的创建、确认、退款、过期处理与查询。
-// 所有与外部渠道的交互都通过 payment.Gateway 抽象完成。
+// PaymentService 负责支付单的确认、退款与查询。
+// gateway 为真实支付渠道预留位（TODO(支付接入)），未接入时为 nil。
 type PaymentService struct {
-	db            *gorm.DB
-	gateway       payment.Gateway
-	expireMinutes int64
+	db      *gorm.DB
+	gateway payment.Gateway
 }
 
 // NewPaymentService 创建支付服务。
-func NewPaymentService(db *gorm.DB, gateway payment.Gateway, expireMinutes int64) *PaymentService {
-	if expireMinutes <= 0 {
-		expireMinutes = 30
-	}
-	return &PaymentService{
-		db:            db,
-		gateway:       gateway,
-		expireMinutes: expireMinutes,
-	}
-}
-
-// GatewayConfigured 返回是否已注入真实支付网关。
-func (s *PaymentService) GatewayConfigured() bool {
-	return s.gateway != nil
-}
-
-// CreatePay 在调用方事务内幂等创建支付单：
-//   - 已有未过期的待支付单则直接返回原单；
-//   - 已有过期单先作废再新建（避免 BusinessId 唯一键冲突）；
-//   - 已有已支付/退款/作废单则返回业务错误。
-func (s *PaymentService) CreatePay(ctx context.Context, tx *gorm.DB, businessType, businessId, userId string, value int64) (*models.Pay, error) {
-	now := time.Now().Unix()
-	existing, err := gorm.G[models.Pay](tx).Where("business_id = ?", businessId).Order("created_at ASC").Find(ctx)
-	if err != nil {
-		return nil, models.NewDatabaseErr(err)
-	}
-	if len(existing) > 0 {
-		// 已有已支付/已退款单则不允许再建
-		for i := range existing {
-			if existing[i].Status == models.PayStatusPaid || existing[i].Status == models.PayStatusRefunded {
-				return nil, ErrPayExist
-			}
-		}
-		// 已有未过期的待支付单则幂等返回
-		for i := range existing {
-			if existing[i].Status == models.PayStatusPending && existing[i].ExpireTime > now {
-				return &existing[i], nil
-			}
-		}
-		// 惰性作废过期待支付单，随后新建
-		for i := range existing {
-			if existing[i].Status == models.PayStatusPending {
-				if _, err := gorm.G[models.Pay](tx).Where("uuid = ?", existing[i].UUID).Update(ctx, "status", models.PayStatusVoid); err != nil {
-					return nil, models.NewDatabaseErr(err)
-				}
-			}
-		}
-	}
-
-	newPay := models.Pay{
-		UserId:       userId,
-		BusinessType: businessType,
-		BusinessId:   businessId,
-		Value:        value,
-		Status:       models.PayStatusPending,
-		ExpireTime:   now + s.expireMinutes*60,
-	}
-	if s.gateway != nil {
-		newPay.Channel = s.gateway.Name()
-	}
-	if err := gorm.G[models.Pay](tx).Create(ctx, &newPay); err != nil {
-		return nil, models.NewDatabaseErr(err)
-	}
-	return &newPay, nil
-}
-
-// BuildResult 基于已落库的支付单生成对外返回信息（含支付页地址与模拟回调签名）。
-func (s *PaymentService) BuildResult(ctx context.Context, pay *models.Pay) (*PaymentResult, error) {
-	if s.gateway == nil {
-		return nil, ErrGatewayMissing
-	}
-	result, err := s.gateway.CreateOrder(ctx, &payment.Order{
-		PayId:        pay.UUID,
-		UserId:       pay.UserId,
-		BusinessType: pay.BusinessType,
-		BusinessId:   pay.BusinessId,
-		Value:        pay.Value,
-		ExpireTime:   pay.ExpireTime,
-	})
-	if err != nil {
-		return nil, models.NewInternalError(500, "创建支付订单失败", err)
-	}
-	return &PaymentResult{
-		PayId:      pay.UUID,
-		PayUrl:     result.PayUrl,
-		Value:      pay.Value,
-		Status:     pay.Status,
-		ExpireTime: pay.ExpireTime,
-	}, nil
+func NewPaymentService(db *gorm.DB, gateway payment.Gateway) *PaymentService {
+	return &PaymentService{db: db, gateway: gateway}
 }
 
 // ConfirmPaid 将待支付单流转为已支付，并联动更新对应业务单状态。
+// 所需数据（金额、业务类型、业务单号）全部从 pays 读取。
 func (s *PaymentService) ConfirmPaid(ctx context.Context, payId string) error {
 	pay, err := s.loadPay(ctx, payId)
 	if err != nil {
@@ -332,21 +234,6 @@ func (s *PaymentService) GetPayByBusinessId(ctx context.Context, businessId stri
 	return datas[0].ToPayRes(), nil
 }
 
-// FindActivePendingPay 查询业务单当前有效的待支付单（未过期），不存在返回 nil。
-func (s *PaymentService) FindActivePendingPay(ctx context.Context, tx *gorm.DB, businessId string) (*models.Pay, error) {
-	datas, err := gorm.G[models.Pay](tx).Where("business_id = ?", businessId).Order("created_at DESC").Find(ctx)
-	if err != nil {
-		return nil, models.NewDatabaseErr(err)
-	}
-	now := time.Now().Unix()
-	for i := range datas {
-		if datas[i].Status == models.PayStatusPending && datas[i].ExpireTime > now {
-			return &datas[i], nil
-		}
-	}
-	return nil, nil
-}
-
 // TodayStats 返回今日已支付笔数与金额合计。
 func (s *PaymentService) TodayStats(ctx context.Context) (count int64, sum int64, err error) {
 	now := time.Now()
@@ -428,4 +315,17 @@ func SinglePrice() int64 {
 		return 500
 	}
 	return n
+}
+
+// PayExpireSeconds 读取支付单有效期（秒），默认 30 分钟。
+func PayExpireSeconds() int64 {
+	v := os.Getenv("PayExpireMinutes")
+	if v == "" {
+		return 30 * 60
+	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil || n <= 0 {
+		return 30 * 60
+	}
+	return n * 60
 }

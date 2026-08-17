@@ -75,13 +75,13 @@ go run ../cli create-admin --username admin --password 你的密码 --email admi
 ## 支付流程与真实渠道接入
 
 ```
-结算（签到/会员订单）
-  → 生成支付单 status=0（30 分钟有效）
-  → TODO(支付接入)：调用真实渠道下单，返回支付二维码/链接
-  → 渠道异步回调 → 验签 → 支付成功 status=1 → 业务单联动
+结算（签到/会员订单）——业务终点：生成 pays status=0（30 分钟有效），返回 payId
+支付动作——统一操作 pays：确认收款/渠道回调 → status=1 → 业务单联动
 过期：定时任务 + 惰性检查自动作废（status=-1）
 退款：管理端确认收款后全额退款（status=3）
 ```
+
+业务服务（Sign/Member）与支付服务（PaymentService）无依赖：业务只负责生成 pays，支付所需数据全部从 pays 读取。
 
 支付单状态：`0 待支付 / 1 已支付 / -1 已作废 / 3 已退款`。
 
@@ -91,7 +91,7 @@ go run ../cli create-admin --username admin --password 你的密码 --email admi
 2. 在 `cmd/main/main.go` 的 `TODO(支付接入)` 标注处创建实例并注入 `PaymentService`。
 3. 编写渠道回调接口（验签后调用 `PaymentService.ConfirmPaid`），业务状态机无需改动。
 
-> 未接入前结算接口返回 `503 支付网关未配置`，管理端仍可手工确认收款/退款。
+> 未接入支付渠道时，支付动作由管理端手工确认收款/退款完成。
 
 ## API 摘要
 

@@ -449,7 +449,9 @@ func (h *MemberHandler) FinishMemberOrder(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	resp.Data = res
+	resp.Data = gin.H{
+		"payId": res,
+	}
 	c.JSON(http.StatusOK, resp)
 }
 

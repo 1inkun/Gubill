@@ -39,7 +39,7 @@ Content-Type: application/json
 | POST | `/sign` | 开始签到，返回 `signId` |
 | GET | `/sign?status=0` | 查询自己的签到记录（按状态过滤） |
 | GET | `/sign/:sign_id` | 签到详情 |
-| PUT | `/sign/:sign_id` | 结算，返回 `payId`、`payUrl` |
+| PUT | `/sign/:sign_id` | 结算，生成 pays 并返回 `payId` |
 
 ### 会员
 
@@ -77,12 +77,12 @@ SIGN_ID=$(curl -s -X POST http://localhost:8080/api/v1/sign \
 PAY=$(curl -s -X PUT http://localhost:8080/api/v1/sign/$SIGN_ID \
   -H "Authorization: Bearer $TOKEN")
 PAY_ID=$(echo $PAY | jq -r .data.payId)
-echo "支付单: $PAY_ID，支付地址: $(echo $PAY | jq -r .data.payUrl)"
+echo "支付单: $PAY_ID"
 ```
 
 ### 真实支付渠道接入（TODO）
 
-当前版本未接入支付渠道，结算接口在网关未配置时返回 `503 支付网关未配置`。接入方式：
+当前版本未接入支付渠道，支付动作（确认/退款）由支付模块统一操作 pays。接入方式：
 
 1. 实现 `internal/payment.Gateway` 接口（微信 Native / 支付宝当面付，接口内已附示例注释）。
 2. 在 `cmd/main/main.go` 的 `TODO(支付接入)` 处创建实例并注入。

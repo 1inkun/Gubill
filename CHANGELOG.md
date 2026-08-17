@@ -13,6 +13,7 @@
 ### 变更
 
 - 回退移除模拟支付网关（MockGateway）与 mock 回调、站内模拟支付页，保留统一支付状态机与 `Gateway` 接口，并标注真实渠道接入位置（`TODO(支付接入)`）。
+- 按团队意见解耦：`SignService`/`MemberService` 不再依赖 `PaymentService`，业务结算直接生成 pays，支付动作（确认/退款）统一由支付模块操作 pays。
 
 ## [0.2.0] - 2026-08-17
 

@@ -39,7 +39,7 @@ flowchart TB
 | 路由层 | `internal/router` | 路由注册、服务组装、中间件挂载 |
 | 中间件 | `internal/middlewares` | 限流、JWT/Bearer 解析、统一错误响应 |
 | Handler 层 | `internal/handler` | 参数绑定/校验、响应组装 |
-| Service 层 | `internal/service` | 业务规则与事务；`PaymentService` 独占支付状态机 |
+| Service 层 | `internal/service` | 业务规则与事务；`PaymentService` 为独立支付动作模块（只读 pays） |
 | 网关层 | `internal/payment` | `Gateway` 接口，真实支付渠道（微信/支付宝）接入位 |
 | 模型层 | `internal/models` | 表结构、状态常量、响应/错误类型 |
 | 基础设施 | `repository` / `config` / `utils` | 数据库、配置、工具函数 |
@@ -79,18 +79,18 @@ sequenceDiagram
     participant API as 用户端 API
     participant S as SignService
     participant P as PaymentService
-    participant G as 支付渠道
     U->>API: POST /sign
     API->>S: GenerateNewSignData
     S-->>U: signId
     U->>API: PUT /sign/:id 结算
     API->>S: FinishSignData（阶梯计费）
-    S->>P: CreatePay（事务内幂等）
-    P->>G: TODO(支付接入)：CreateOrder → 支付二维码/链接
-    API-->>U: payId / payUrl
-    G->>P: 渠道异步回调 → 验签 → ConfirmPaid
+    S->>S: 业务终点：直接生成 pays（status=0）
+    API-->>U: payId
+    P->>S: 支付动作只读 pays：ConfirmPaid/RefundPay
     P->>P: 状态流转 + 业务联动
 ```
+
+业务服务（Sign/Member）与支付服务（PaymentService）**无依赖关系**：业务结算直接生成 pays，支付所需数据全部从 pays 读取。
 
 ### 计费规则
 

@@ -11,12 +11,11 @@ import (
 )
 
 type MemberService struct {
-	db      *gorm.DB
-	payment *PaymentService
+	db *gorm.DB
 }
 
-func NewMemberService(db *gorm.DB, payment *PaymentService) *MemberService {
-	return &MemberService{db: db, payment: payment}
+func NewMemberService(db *gorm.DB) *MemberService {
+	return &MemberService{db: db}
 }
 
 var (
@@ -24,7 +23,6 @@ var (
 	ErrNoSuchData            = models.NewBusinessError(400, "找不到数据")
 	ErrExistMemberData       = models.NewBusinessError(400, "会员数据已经存在")
 	ErrPaidOrderCannotCancel = models.NewBusinessError(400, "已支付订单不可取消")
-	ErrOrderFinished         = models.NewBusinessError(400, "订单已完成")
 )
 
 // 针对MemberPlan的操作
@@ -389,11 +387,6 @@ func (s *MemberService) CancelMemberOrder(ctx context.Context, userId string, or
 		if e != nil {
 			return models.NewDatabaseErr(e)
 		}
-		// 联动作废该订单的未支付支付单
-		if _, e := gorm.G[models.Pay](tx).Where("business_id = ? AND status = ?", orderId, models.PayStatusPending).
-			Update(ctx, "status", models.PayStatusVoid); e != nil {
-			return models.NewDatabaseErr(e)
-		}
 		return nil
 	})
 	if err != nil {
@@ -402,11 +395,12 @@ func (s *MemberService) CancelMemberOrder(ctx context.Context, userId string, or
 	return res, nil
 }
 
-func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, orderId string) (*PaymentResult, error) {
-	if !s.payment.GatewayConfigured() {
-		return nil, ErrGatewayMissing
-	}
-	var pay *models.Pay
+func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, orderId string) (string, error) {
+	var newData models.Pay
+	newData.UserId = userId
+	newData.BusinessType = models.PayBusinessMember
+	newData.Status = models.PayStatusPending
+	newData.ExpireTime = time.Now().Add(time.Duration(PayExpireSeconds()) * time.Second).Unix()
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var check []models.MemberOrders
 		check, e := gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Limit(1).Find(ctx)
@@ -417,23 +411,8 @@ func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, or
 			return ErrNoSuchData
 		}
 		data := check[0]
-		if data.UserId != userId {
+		if data.UserId != userId || data.Status != models.MemberOrderStatusCreated {
 			return ErrWrongUser
-		}
-		if data.Status == models.MemberOrderStatusPaid {
-			return ErrOrderFinished
-		}
-		if data.Status != models.MemberOrderStatusCreated && data.Status != models.MemberOrderStatusPendingPay {
-			return ErrWrongUser
-		}
-		// 已有有效待支付单则幂等返回
-		if data.Status == models.MemberOrderStatusPendingPay {
-			if active, err := s.payment.FindActivePendingPay(ctx, tx, orderId); err != nil {
-				return err
-			} else if active != nil {
-				pay = active
-				return nil
-			}
 		}
 		// 通过planId获取价格
 		var planData models.MemberPlan
@@ -442,20 +421,22 @@ func (s *MemberService) FinishMemberOrder(ctx context.Context, userId string, or
 			log.Println(e)
 			return ErrNoSuchData
 		}
+		// 构造并写入支付单（业务终点：生成 pays）
+		newData.BusinessId = orderId
+		newData.Value = planData.Value
+		e = gorm.G[models.Pay](tx).Create(ctx, &newData)
+		if e != nil {
+			return models.NewDatabaseErr(e)
+		}
 		// 修改会员订单的状态为待支付
 		_, e = gorm.G[models.MemberOrders](tx).Where("uuid = ?", orderId).Update(ctx, "status", models.MemberOrderStatusPendingPay)
 		if e != nil {
 			return models.NewDatabaseErr(e)
 		}
-		// 幂等创建支付单
-		pay, e = s.payment.CreatePay(ctx, tx, models.PayBusinessMember, orderId, userId, planData.Value)
-		if e != nil {
-			return e
-		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return s.payment.BuildResult(ctx, pay)
+	return newData.UUID, nil
 }
