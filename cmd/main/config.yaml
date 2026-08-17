@@ -1,10 +1,13 @@
 SQLite:
-    Url: "data.db"
+    Url: "data/data.db"
 Gin:
     Mode: "debug"
-JWT:
-    Salt: "我是马牛逼"
+Billing:
+    SinglePrice: 500
+Pay:
+    ExpireMinutes: 30
 Server:
     Addr: ":8080"
+    PublicBaseUrl: "http://localhost:8080"
 ServerAdmin:
     Addr: ":8081"

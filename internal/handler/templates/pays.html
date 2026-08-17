@@ -1,0 +1,21 @@
+{{define "admin_pays"}}
+{{template "head" .}}
+{{template "nav" .}}
+<div class="container">
+  <h1>支付记录</h1>
+  {{if .Msg}}<div class="msg">{{.Msg}}</div>{{end}}
+  <table>
+    <tr><th>支付单ID</th><th>用户</th><th>业务</th><th>金额(元)</th><th>状态</th><th>支付时间</th><th>退款时间</th><th>操作</th></tr>
+    {{range .Pays}}
+    <tr>
+      <td>{{.UUID}}</td><td>{{.UserId}}</td><td>{{.BusinessType}}</td><td>{{printf "%.2f" (yuan .Value)}}</td><td>{{.StatusText}}</td><td>{{ftime .PayAt}}</td><td>{{ftime .RefundAt}}</td>
+      <td>
+        {{if eq .Status 0}}<form method="post" action="/admin/pays/{{.UUID}}/confirm" style="display:inline"><button class="btn green" type="submit">确认收款</button></form>{{end}}
+        {{if eq .Status 1}}<form method="post" action="/admin/pays/{{.UUID}}/refund" style="display:inline"><button class="btn red" type="submit">退款</button></form>{{end}}
+      </td>
+    </tr>
+    {{end}}
+  </table>
+</div>
+{{template "foot" .}}
+{{end}}

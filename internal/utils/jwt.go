@@ -19,7 +19,7 @@ type JWTClaims struct {
 }
 
 func GenNewJWT(userData models.User) (string, error) {
-	signingKey := []byte(os.Getenv("JWTSalt"))
+	signingKey := []byte(os.Getenv("JWT_SALT"))
 	claims := JWTClaims{
 		userData.UUID,
 		userData.UserName,
@@ -42,9 +42,9 @@ func GenNewJWT(userData models.User) (string, error) {
 func ParseJWT(JWTString string) (JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(JWTString, &JWTClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, models.NewInternalError(500, "错误的JWT算法", nil)
+			return nil, errors.New("错误的JWT算法")
 		}
-		return []byte(os.Getenv("JWTSalt")), nil
+		return []byte(os.Getenv("JWT_SALT")), nil
 	})
 	if err != nil {
 		return JWTClaims{}, err

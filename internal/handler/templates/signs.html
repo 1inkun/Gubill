@@ -1,0 +1,16 @@
+{{define "admin_signs"}}
+{{template "head" .}}
+{{template "nav" .}}
+<div class="container">
+  <h1>签到记录</h1>
+  <table>
+    <tr><th>签到ID</th><th>用户</th><th>开始</th><th>结束</th><th>金额(元)</th><th>状态</th></tr>
+    {{range .Signs}}
+    <tr>
+      <td>{{.UUID}}</td><td>{{.UserId}}</td><td>{{ftime .StartAt}}</td><td>{{ftime .EndAt}}</td><td>{{printf "%.2f" (yuan .Value)}}</td><td>{{.StatusText}}</td>
+    </tr>
+    {{end}}
+  </table>
+</div>
+{{template "foot" .}}
+{{end}}

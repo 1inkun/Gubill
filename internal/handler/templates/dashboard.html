@@ -1,0 +1,15 @@
+{{define "admin_dashboard"}}
+{{template "head" .}}
+{{template "nav" .}}
+<div class="container">
+  <h1>概览</h1>
+  {{if .Msg}}<div class="msg">{{.Msg}}</div>{{end}}
+  <div class="stats">
+    <div class="stat">今日已支付笔数<div class="num">{{.PaidCount}}</div></div>
+    <div class="stat">今日收入（元）<div class="num">{{printf "%.2f" .PaidSumYuan}}</div></div>
+    <div class="stat">待支付单数<div class="num">{{.Pending}}</div></div>
+    <div class="stat">会员计划数<div class="num">{{.PlanCount}}</div></div>
+  </div>
+</div>
+{{template "foot" .}}
+{{end}}

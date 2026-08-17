@@ -2,15 +2,21 @@ package repository
 
 import (
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/1inkun/Gubill/internal/models"
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
 func InitDatabaseConnect() (*gorm.DB, error) {
 	sqliteUrl := os.Getenv("SQLiteUrl")
+	if dir := filepath.Dir(sqliteUrl); dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, err
+		}
+	}
 	db, err := gorm.Open(sqlite.Open(sqliteUrl), &gorm.Config{})
 	if err != nil {
 		return nil, err

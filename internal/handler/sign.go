@@ -30,7 +30,7 @@ func (h *SignHandler) GetAllSignData(c *gin.Context) {
 		return
 	}
 	pagin := struct {
-		Page     int `json:"page" binding:"required"`
+		Page     int `form:"page"`
 		PageSize int `json:"page_size"`
 	}{}
 	err := c.ShouldBindQuery(&pagin)
@@ -194,8 +194,6 @@ func (h *SignHandler) FinishSignData(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	resp.Data = gin.H{
-		"pay_id": res,
-	}
+	resp.Data = res
 	c.JSON(http.StatusOK, resp)
 }

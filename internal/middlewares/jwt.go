@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/1inkun/Gubill/internal/models"
@@ -14,6 +15,10 @@ func CheckJWT() gin.HandlerFunc {
 		// 从请求头中获取JWT
 		now := time.Now()
 		JWTString := ctx.GetHeader("Authorization")
+		// 兼容 "Bearer <token>" 与裸 token 两种格式
+		if len(JWTString) >= 7 && strings.EqualFold(JWTString[:7], "Bearer ") {
+			JWTString = strings.TrimSpace(JWTString[7:])
+		}
 		if JWTString == "" {
 			resp := models.NewResponse(403, "fail", "登录状态有误", nil)
 			ctx.AbortWithStatusJSON(http.StatusForbidden, resp)

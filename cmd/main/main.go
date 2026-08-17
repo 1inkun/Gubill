@@ -6,44 +6,46 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/1inkun/Gubill/internal/config"
+	"github.com/1inkun/Gubill/internal/payment"
 	"github.com/1inkun/Gubill/internal/repository"
 	"github.com/1inkun/Gubill/internal/router"
-	"golang.org/x/sync/errgroup"
-)
-
-var (
-	g errgroup.Group
+	"github.com/1inkun/Gubill/internal/service"
 )
 
 func main() {
 	config.InitConfig()
+	if os.Getenv("JWT_SALT") == "" {
+		log.Fatalln("缺少 JWT_SALT 环境变量，请参考 .env.example 配置后重试")
+	}
 	db, err := repository.InitDatabaseConnect()
 	if err != nil {
 		log.Fatalf("数据库连接错误:%s", err.Error())
 	}
+	// 构造支付服务（网关注入点）
+	expireMinutes, _ := strconv.ParseInt(os.Getenv("PayExpireMinutes"), 10, 64)
+	// TODO(支付接入)：实现 internal/payment.Gateway（微信/支付宝）后，在此创建实例并注入：
+	//   gateway := payment.NewWechatGateway(/* 商户配置 */)   // 或支付宝实现
+	// 未接入前保持 nil：结算接口将返回"支付网关未配置"，管理端仍可手工确认收款/退款。
+	var gateway payment.Gateway
+	paymentService := service.NewPaymentService(db, gateway, expireMinutes)
+	// 后台定时作废过期支付单
+	sweeperCtx, sweeperCancel := context.WithCancel(context.Background())
+	defer sweeperCancel()
+	go paymentService.StartExpireSweeper(sweeperCtx, 5*time.Minute)
+
 	server := http.Server{
 		Addr:    os.Getenv("ServerAddr"),
-		Handler: router.InitRouter(db),
+		Handler: router.InitRouter(db, paymentService),
 	}
 	serverAdmin := http.Server{
 		Addr:    os.Getenv("ServerAdminAddr"),
-		Handler: router.InitAdminRouter(db),
+		Handler: router.InitAdminRouter(db, paymentService),
 	}
-	// // 用户侧服务
-	// g.Go(func() error {
-	// 	return server.ListenAndServe()
-	// })
-	// // 管理侧服务
-	// g.Go(func() error {
-	// 	return serverAdmin.ListenAndServe()
-	// })
-	// if err := g.Wait(); err != nil && err != http.ErrServerClosed {
-	// 	log.Fatal(err)
-	// }
 	// 用户侧服务
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

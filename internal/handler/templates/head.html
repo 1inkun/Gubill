@@ -1,0 +1,41 @@
+{{define "head"}}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} - Gubill</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif; background: #f5f6fa; color: #333; }
+    .container { max-width: 1080px; margin: 0 auto; padding: 20px; }
+    nav { background: #1f2d3d; color: #fff; }
+    nav .container { display: flex; gap: 18px; align-items: center; padding: 12px 20px; }
+    nav a { color: #c8d6e5; text-decoration: none; padding: 4px 8px; border-radius: 4px; }
+    nav a:hover { color: #fff; background: rgba(255,255,255,.12); }
+    nav .brand { font-weight: bold; color: #fff; margin-right: auto; }
+    h1 { font-size: 20px; }
+    .card { background: #fff; border-radius: 8px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; }
+    .stat { flex: 1; min-width: 180px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .stat .num { font-size: 26px; font-weight: bold; color: #2d8cf0; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left; font-size: 14px; }
+    th { background: #fafbfc; }
+    .msg { background: #e8f7ef; color: #18794e; padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; }
+    .err { color: #c0392b; }
+    .btn { display: inline-block; background: #2d8cf0; color: #fff; border: 0; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 13px; text-decoration: none; }
+    .btn.gray { background: #8492a6; }
+    .btn.red { background: #e05b5b; }
+    .btn.green { background: #19be6b; }
+    .form-row { margin-bottom: 12px; }
+    .form-row label { display: inline-block; width: 90px; }
+    .form-row input { padding: 6px 8px; border: 1px solid #dcdee2; border-radius: 4px; width: 240px; }
+    .pay-box { max-width: 420px; margin: 60px auto; background: #fff; border-radius: 10px; padding: 32px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .pay-box .amount { font-size: 34px; font-weight: bold; color: #e67e22; margin: 12px 0; }
+    .pay-box .meta { color: #8492a6; font-size: 13px; margin-bottom: 20px; }
+    .status-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; background: #e8f7ef; color: #18794e; }
+    .status-badge.warn { background: #fff7e6; color: #b8860b; }
+    .status-badge.dark { background: #f0f0f0; color: #666; }
+  </style>
+</head>
+<body>{{end}}

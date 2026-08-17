@@ -1,0 +1,13 @@
+{{define "admin_login"}}
+{{template "head" .}}
+<div class="pay-box">
+  <h1>Gubill 管理员登录</h1>
+  {{if .Msg}}<div class="msg">{{.Msg}}</div>{{end}}
+  <form method="post" action="/admin/login">
+    <div class="form-row"><label>用户名</label><input name="username" required></div>
+    <div class="form-row"><label>密码</label><input type="password" name="password" required></div>
+    <button class="btn" type="submit">登录</button>
+  </form>
+</div>
+{{template "foot" .}}
+{{end}}

@@ -1,0 +1,31 @@
+{{define "admin_members"}}
+{{template "head" .}}
+{{template "nav" .}}
+<div class="container">
+  <h1>会员管理</h1>
+  {{if .Msg}}<div class="msg">{{.Msg}}</div>{{end}}
+  <div class="card">
+    <form method="post" action="/admin/members">
+      <div class="form-row"><label>用户ID</label><input name="userId" required></div>
+      <div class="form-row"><label>到期时间戳</label><input name="end_at" type="number" required></div>
+      <button class="btn green" type="submit">添加会员</button>
+    </form>
+  </div>
+  <table>
+    <tr><th>会员ID</th><th>用户</th><th>状态</th><th>到期时间</th><th>操作</th></tr>
+    {{range .Members}}
+    <tr>
+      <td>{{.UUID}}</td><td>{{.UserId}}</td><td>{{.StatusText}}</td><td>{{ftime .EndAt}}</td>
+      <td>
+        <form method="post" action="/admin/members/{{.UUID}}" style="display:inline">
+          <select name="status"><option value="1" {{if eq .Status 1}}selected{{end}}>有效</option><option value="0" {{if eq .Status 0}}selected{{end}}>失效</option></select>
+          <input name="end_at" type="number" value="{{.EndAt}}" size="12">
+          <button class="btn gray" type="submit">修改</button>
+        </form>
+      </td>
+    </tr>
+    {{end}}
+  </table>
+</div>
+{{template "foot" .}}
+{{end}}

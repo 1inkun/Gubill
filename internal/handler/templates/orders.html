@@ -1,0 +1,21 @@
+{{define "admin_orders"}}
+{{template "head" .}}
+{{template "nav" .}}
+<div class="container">
+  <h1>会员订单</h1>
+  {{if .Msg}}<div class="msg">{{.Msg}}</div>{{end}}
+  <table>
+    <tr><th>订单ID</th><th>用户</th><th>金额(元)</th><th>状态</th><th>操作</th></tr>
+    {{range .Orders}}
+    <tr>
+      <td>{{.UUID}}</td><td>{{.UserId}}</td><td>{{printf "%.2f" (yuan .Value)}}</td><td>{{.StatusText}}</td>
+      <td>
+        {{if eq .Status 2}}<form method="post" action="/admin/orders/{{.UUID}}/confirm" style="display:inline"><button class="btn green" type="submit">确认收款</button></form>{{end}}
+        {{if ne .Status -1}}<form method="post" action="/admin/orders/{{.UUID}}/cancel" style="display:inline"><button class="btn red" type="submit">取消</button></form>{{end}}
+      </td>
+    </tr>
+    {{end}}
+  </table>
+</div>
+{{template "foot" .}}
+{{end}}

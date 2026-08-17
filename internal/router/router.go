@@ -11,7 +11,7 @@ import (
 )
 
 // 面向用户开放的接口
-func InitRouter(db *gorm.DB) *gin.Engine {
+func InitRouter(db *gorm.DB, paymentService *service.PaymentService) *gin.Engine {
 	ginMode := os.Getenv("GinMode")
 	if ginMode == "" {
 		gin.SetMode("debug")
@@ -23,12 +23,17 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
 
 	userService := service.NewUserService(db)
-	signService := service.NewSignService(db)
-	memberService := service.NewMemberService(db)
+	signService := service.NewSignService(db, paymentService)
+	memberService := service.NewMemberService(db, paymentService)
 
 	userHandler := handler.NewUserHandler(userService)
 	sighHandler := handler.NewSignHandler(signService)
 	memberHandler := handler.NewMemberHandler(memberService)
+	payHandler := handler.NewPayHandler(paymentService)
+	webHandler, err := handler.NewWebHandler(userService, memberService, signService, paymentService)
+	if err != nil {
+		panic(err)
+	}
 
 	apiv1 := r.Group("/api/v1")
 	user := apiv1.Group("/user")
@@ -73,11 +78,19 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 		// 结算用户自己的**会员订单**
 		memberOrder.POST("/:order_id", memberHandler.FinishMemberOrder)
 	}
+	pay := apiv1.Group("/pay")
+	{
+		authed := pay.Group("")
+		authed.Use(middlewares.CheckJWT())
+		authed.GET("", payHandler.GetUserPays)
+		authed.GET("/:pay_id", payHandler.GetUserPay)
+	}
+	r.GET("/", webHandler.HomePage)
 	return r
 }
 
 // 面向管理员开放的接口
-func InitAdminRouter(db *gorm.DB) *gin.Engine {
+func InitAdminRouter(db *gorm.DB, paymentService *service.PaymentService) *gin.Engine {
 	ginMode := os.Getenv("GinMode")
 	if ginMode == "" {
 		gin.SetMode("debug")
@@ -85,15 +98,21 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 		gin.SetMode(ginMode)
 	}
 	r := gin.Default()
-	r.Use(middlewares.RateLimiter(), middlewares.CheckJWT(), middlewares.ErrHandler())
+	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
 	// 构造Service
-	memberService := service.NewMemberService(db)
-	signService := service.NewSignService(db)
+	userService := service.NewUserService(db)
+	memberService := service.NewMemberService(db, paymentService)
+	signService := service.NewSignService(db, paymentService)
 	// 构造Handler
 	memberHandler := handler.NewMemberHandler(memberService)
 	signHandler := handler.NewSignHandler(signService)
+	payHandler := handler.NewPayHandler(paymentService)
+	webHandler, err := handler.NewWebHandler(userService, memberService, signService, paymentService)
+	if err != nil {
+		panic(err)
+	}
 
-	apiv1Admin := r.Group("/api/v1/")
+	apiv1Admin := r.Group("/api/v1/", middlewares.CheckJWT())
 	// 会员服务相关的管理接口
 	memberPlan := apiv1Admin.Group("/member_plan")
 	{
@@ -124,6 +143,34 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 		sign.GET("", signHandler.GetAllSignData)
 		sign.GET("/:sign_id", signHandler.GetSignDataBySignId)
 		sign.PUT("/:sign_id", signHandler.UpdateSignData)
+	}
+	pay := apiv1Admin.Group("/pay")
+	{
+		pay.GET("", payHandler.GetAllPays)
+		pay.GET("/:pay_id", payHandler.GetPay)
+		pay.POST("/:pay_id/confirm", payHandler.ConfirmPay)
+		pay.POST("/:pay_id/refund", payHandler.RefundPay)
+	}
+	// 管理页面（无需 CheckJWT，登录页与 Cookie 鉴权分开处理）
+	r.GET("/admin/login", webHandler.LoginPage)
+	r.POST("/admin/login", webHandler.Login)
+	r.GET("/admin/logout", webHandler.Logout)
+	admin := r.Group("/admin", middlewares.AdminPageAuth())
+	{
+		admin.GET("", webHandler.Dashboard)
+		admin.GET("/plans", webHandler.PlansPage)
+		admin.POST("/plans", webHandler.CreatePlan)
+		admin.POST("/plans/:plan_id", webHandler.UpdatePlan)
+		admin.GET("/orders", webHandler.OrdersPage)
+		admin.POST("/orders/:order_id/confirm", webHandler.ConfirmOrder)
+		admin.POST("/orders/:order_id/cancel", webHandler.CancelOrder)
+		admin.GET("/members", webHandler.MembersPage)
+		admin.POST("/members", webHandler.AddMember)
+		admin.POST("/members/:member_id", webHandler.UpdateMember)
+		admin.GET("/signs", webHandler.SignsPage)
+		admin.GET("/pays", webHandler.PaysPage)
+		admin.POST("/pays/:pay_id/confirm", webHandler.ConfirmPayPage)
+		admin.POST("/pays/:pay_id/refund", webHandler.RefundPayPage)
 	}
 	return r
 }

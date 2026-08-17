@@ -53,7 +53,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 	// 数据处理完毕,具体逻辑交由服务层函数处理
-	res, err := h.userService.Login(ctx, bodyData.Username, bodyData.Password)
+	res, err := h.userService.Login(ctx, bodyData.Username, bodyData.Password, c.ClientIP())
 	if err != nil {
 		c.Error(err)
 		return
@@ -65,7 +65,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 }
 
 func (h *UserHandler) Register(c *gin.Context) {
-	response := models.NewResponse(200, "success", "登录成功", nil)
+	response := models.NewResponse(200, "success", "注册成功", nil)
 	bodyData := RegisterData{}
 	ctx := c.Request.Context()
 	if err := c.ShouldBindJSON(&bodyData); err != nil {
@@ -77,7 +77,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 	// 数据处理完毕,调用服务层函数继续
-	res, err := h.userService.Register(ctx, bodyData.UserName, bodyData.NickName, bodyData.Password, bodyData.Email)
+	res, err := h.userService.Register(ctx, bodyData.UserName, bodyData.NickName, bodyData.Password, bodyData.Email, c.ClientIP())
 	if err != nil {
 		c.Error(err)
 		return
