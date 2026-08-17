@@ -9,7 +9,7 @@ import (
 
 	"github.com/1inkun/Gubill/internal/models"
 	"github.com/1inkun/Gubill/internal/payment"
-	"github.com/glebarez/sqlite"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 

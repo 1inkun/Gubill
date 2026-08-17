@@ -14,7 +14,7 @@
 ### 依赖
 
 - Go 1.26+
-- 无需 C 编译器（SQLite 使用纯 Go 驱动）
+- C 编译器（64 位 gcc）：SQLite 驱动 `gorm.io/driver/sqlite` 依赖 CGO
 
 ### 启动
 

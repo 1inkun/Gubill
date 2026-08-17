@@ -30,7 +30,7 @@
 |------|------|
 | 语言 | Go 1.26+ |
 | Web 框架 | Gin |
-| 数据库 | SQLite（纯 Go 驱动 `glebarez/sqlite`，无需 CGO） |
+| 数据库 | SQLite（`gorm.io/driver/sqlite`，依赖 CGO） |
 | ORM | GORM v2 |
 | 认证 | JWT（HS256，6 小时有效期） |
 | 密码 | bcrypt |

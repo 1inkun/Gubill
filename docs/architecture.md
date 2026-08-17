@@ -9,7 +9,7 @@
 | 用户服务 | `:8080` | 注册/登录、签到计费、会员购买、支付记录 |
 | 管理服务 | `:8081` | 管理端 API |
 
-**技术栈**：Go 1.26+ ｜ Gin ｜ GORM v2 + SQLite（纯 Go 驱动，无 CGO）｜ JWT（HS256）｜ bcrypt ｜ html/template
+**技术栈**：Go 1.26+ ｜ Gin ｜ GORM v2 + SQLite（`gorm.io/driver/sqlite`，CGO）｜ JWT（HS256）｜ bcrypt
 
 ## 分层架构
 

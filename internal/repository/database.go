@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/1inkun/Gubill/internal/models"
-	"github.com/glebarez/sqlite"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
