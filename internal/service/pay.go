@@ -14,13 +14,14 @@ import (
 )
 
 var (
-	ErrPayNoExist       = models.NewBusinessError(400, "支付单不存在")
-	ErrPayAlreadyPaid   = models.NewBusinessError(400, "支付单已完成支付")
-	ErrPayExpired       = models.NewBusinessError(400, "支付单已过期")
-	ErrPayVoided        = models.NewBusinessError(400, "支付单已作废")
-	ErrPayRefunded      = models.NewBusinessError(400, "支付单已退款")
-	ErrPayNotPaid       = models.NewBusinessError(400, "支付单未支付，无法退款")
-	ErrPayOwnerMismatch = models.NewBusinessError(400, "无权查看该支付单")
+	ErrPayNoExist           = models.NewBusinessError(400, "支付单不存在")
+	ErrPayAlreadyPaid       = models.NewBusinessError(400, "支付单已完成支付")
+	ErrPayExpired           = models.NewBusinessError(400, "支付单已过期")
+	ErrPayVoided            = models.NewBusinessError(400, "支付单已作废")
+	ErrPayRefunded          = models.NewBusinessError(400, "支付单已退款")
+	ErrPayNotPaid           = models.NewBusinessError(400, "支付单未支付，无法退款")
+	ErrPayOwnerMismatch     = models.NewBusinessError(400, "无权查看该支付单")
+	ErrBusinessStateInvalid = models.NewBusinessError(400, "业务单状态异常，无法确认收款")
 )
 
 // PaymentService 负责支付单的确认、退款与查询。
@@ -100,12 +101,20 @@ func (s *PaymentService) ConfirmPaid(ctx context.Context, payId string) error {
 		// 联动业务单
 		switch pay.BusinessType {
 		case models.PayBusinessSign:
-			if _, e := gorm.G[models.Sign](tx).Where("uuid = ? AND status = ?", pay.BusinessId, models.SignStatusPendingPay).Update(ctx, "status", models.SignStatusFinished); e != nil {
+			n, e := gorm.G[models.Sign](tx).Where("uuid = ? AND status = ?", pay.BusinessId, models.SignStatusPendingPay).Update(ctx, "status", models.SignStatusFinished)
+			if e != nil {
 				return models.NewDatabaseErr(e)
 			}
+			if n == 0 {
+				return ErrBusinessStateInvalid
+			}
 		case models.PayBusinessMember:
-			if _, e := gorm.G[models.MemberOrders](tx).Where("uuid = ? AND status = ?", pay.BusinessId, models.MemberOrderStatusPendingPay).Update(ctx, "status", models.MemberOrderStatusPaid); e != nil {
+			n, e := gorm.G[models.MemberOrders](tx).Where("uuid = ? AND status = ?", pay.BusinessId, models.MemberOrderStatusPendingPay).Update(ctx, "status", models.MemberOrderStatusPaid)
+			if e != nil {
 				return models.NewDatabaseErr(e)
+			}
+			if n == 0 {
+				return ErrBusinessStateInvalid
 			}
 		}
 		return nil

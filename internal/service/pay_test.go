@@ -117,6 +117,41 @@ func TestConfirmPaidStateMachine(t *testing.T) {
 	}
 }
 
+func TestConfirmPaidRejectsInvalidBusinessState(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	ps := newTestPaymentService(db)
+	ctx := context.Background()
+
+	// 会员订单已取消后，其待支付单不能被确认收款
+	order := models.MemberOrders{PlanId: "p1", UserId: "u1", Status: models.MemberOrderStatusCanceled}
+	if err := gorm.G[models.MemberOrders](db).Create(ctx, &order); err != nil {
+		t.Fatal(err)
+	}
+	pay := mustCreatePay(t, db, "member", order.UUID, "u1", 100)
+	if err := ps.ConfirmPaid(ctx, pay.UUID); err != ErrBusinessStateInvalid {
+		t.Fatalf("已取消订单确认收款应报 ErrBusinessStateInvalid, got %v", err)
+	}
+	var payDb models.Pay
+	db.First(&payDb, "uuid = ?", pay.UUID)
+	if payDb.Status != models.PayStatusPending {
+		t.Errorf("失败后支付单应保持待支付, got %d", payDb.Status)
+	}
+
+	// 签到被重置为进行中后，其待支付单不能被确认收款
+	sign := models.Sign{UserId: "u1", Status: models.SignStatusActive, StartAt: time.Now().Unix()}
+	if err := gorm.G[models.Sign](db).Create(ctx, &sign); err != nil {
+		t.Fatal(err)
+	}
+	pay2 := mustCreatePay(t, db, "sign", sign.UUID, "u1", 100)
+	if err := ps.ConfirmPaid(ctx, pay2.UUID); err != ErrBusinessStateInvalid {
+		t.Fatalf("重置后的签到确认收款应报 ErrBusinessStateInvalid, got %v", err)
+	}
+	db.First(&payDb, "uuid = ?", pay2.UUID)
+	if payDb.Status != models.PayStatusPending {
+		t.Errorf("失败后支付单应保持待支付, got %d", payDb.Status)
+	}
+}
+
 func TestRefundRules(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	ps := newTestPaymentService(db)
@@ -128,6 +163,14 @@ func TestRefundRules(t *testing.T) {
 	}
 
 	paid := mustCreatePay(t, db, "sign", "b10", "u1", 100)
+	// 确认收款需要业务单真实存在且处于待支付
+	sign := models.Sign{UserId: "u1", Status: models.SignStatusPendingPay, StartAt: time.Now().Unix() - 3600, EndAt: time.Now().Unix(), Value: 100}
+	if err := gorm.G[models.Sign](db).Create(ctx, &sign); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&models.Pay{}).Where("uuid = ?", paid.UUID).Update("business_id", sign.UUID).Error; err != nil {
+		t.Fatal(err)
+	}
 	if err := ps.ConfirmPaid(ctx, paid.UUID); err != nil {
 		t.Fatal(err)
 	}
