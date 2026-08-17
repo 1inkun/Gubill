@@ -1,0 +1,20 @@
+services:
+  gubill:
+    build: .
+    image: gubill:latest
+    container_name: gubill
+    ports:
+      - "8080:8080" # 用户端 API
+      - "8081:8081" # 管理端 API + 管理页面
+    environment:
+      # 必填：JWT 签名密钥，生产环境务必改为足够长的随机字符串
+      JWT_SALT: ${JWT_SALT:-please-change-me-to-a-long-random-string}
+      SINGLE_PRICE: ${SINGLE_PRICE:-500}
+      PAY_EXPIRE_MINUTES: ${PAY_EXPIRE_MINUTES:-30}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+    volumes:
+      - gubill-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  gubill-data:
