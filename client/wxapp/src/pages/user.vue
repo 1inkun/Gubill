@@ -1,13 +1,16 @@
 <template>
-	<view v-if="loginStatus">
-		<button @click="Logout">登出</button>
-	</view>
-	<view v-else>
-		<button @click="Login">登录</button>
+	<view class="content">
+		<view v-if="loginStatus">
+			<button class="btn btn-error" @click="Logout">登出</button>
+		</view>
+		<view v-else>
+			<NeedLogin />
+		</view>
 	</view>
 </template>
 
 <script setup lang="ts">
+import NeedLogin from '@/components/needLogin.vue';
 import CheckLoginStatus from '@/utils/checkLoginStatus';
 import { onMounted, ref } from 'vue';
 
@@ -22,15 +25,13 @@ const Logout = function () {
 	uni.removeStorageSync("userInfo")
 	// 登出后跳转回主页
 	uni.switchTab({ url: "index" })
-    // 全局登出事件
-    uni.$emit('userLogout')
+	// 全局登出事件
+	uni.$emit('userLogout')
 }
 onMounted(() => {
-    uni.$once ('userLogin',()=>{loginStatus.value = true})
+	uni.$on('userLogin', () => { loginStatus.value = true })
 	loginStatus.value = CheckLoginStatus(uni.getStorageSync("tokenStr"))
 })
 </script>
 
-<style scoped>
-/* @import url("src/static/styles/login.css"); */
-</style>
+<style scoped></style>

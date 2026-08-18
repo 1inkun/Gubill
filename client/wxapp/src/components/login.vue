@@ -1,11 +1,23 @@
 <template>
-	<view>
-		<form @submit="Login">
-			<input type="text" name="username" placeholder="请输入用户名">
-			<input type="text" name="password" placeholder="请输入密码" :password="true">
-			<button form-type="submit">登录</button>
+	<view class="card-container">
+		<!-- 标题 -->
+		<view class="header">
+			<text>登录</text>
+		</view>
+		<!-- 表单 -->
+		<form class="form" @submit="Login">
+			<input class="input" type="text" name="username" placeholder="请输入用户名">
+			<input class="input" type="text" name="password" placeholder="请输入密码" :password="true">
+
+			<button class="btn btn-primary" hover-class="btn-primary-hover" form-type="submit">登录</button>
 		</form>
-		<button @click="() => { emit('register') }">前往注册</button>
+		<!-- 其他功能 -->
+		<view class="tool-container">
+			<view @click="() => { emit('register') }">前往注册</view>
+			<view>忘记密码?</view>
+		</view>
+		<!-- 用户许可协议 -->
+		<!-- <view class="foot-note">登录即代表同意《用户协议》和《隐私政策》</view> -->
 	</view>
 </template>
 
@@ -81,7 +93,7 @@ const Login = async function (e: any) {
 			if (!ok) {
 				throw new Error("登录失败")
 			}
-            uni.$emit('userLogin')
+			uni.$emit('userLogin')
 			uni.switchTab({ url: "index" })
 		}
 	} catch (error: any) {
@@ -92,6 +104,42 @@ const Login = async function (e: any) {
 }
 </script>
 
-<style>
-/* @import url("src/static/styles/login.css"); */
+<style scoped>
+.header {
+	border-left: 8px solid var(--primary-color);
+	padding-left: 8px;
+	margin-top: 8px;
+	margin-bottom: 16px;
+	font-size: 1.25rem;
+}
+
+.form {
+	display: flex;
+	flex-direction: column;
+}
+
+.input {
+	width: auto;
+	/* display: inline-block; */
+	padding: 12px;
+	margin-bottom: 16px;
+	border-radius: 12px;
+	border: 1px, solid, lightgray;
+}
+
+.tool-container {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 12px;
+	margin-bottom: 8px;
+	color: darkgray;
+}
+
+.foot-note {
+	text-align: center;
+	font-size: 11px;
+	color: #c0c0c0;
+	margin-top: 8px;
+	line-height: 1.6;
+}
 </style>

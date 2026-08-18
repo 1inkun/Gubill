@@ -1,10 +1,11 @@
 <template>
-	<div class="login">login</div>
-	<view v-if="mode">
-		<Login @register="() => { mode = false }" />
-	</view>
-	<view v-else>
-		<Register @success="() => { mode = true }" @login="() => { mode = !mode }" />
+	<view class="content">
+		<view v-if="mode">
+			<Login @register="() => { mode = false }" />
+		</view>
+		<view v-else>
+			<Register @success="() => { mode = true }" @login="() => { mode = !mode }" />
+		</view>
 	</view>
 </template>
 

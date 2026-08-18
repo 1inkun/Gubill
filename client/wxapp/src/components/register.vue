@@ -1,13 +1,19 @@
 <template>
-	<view>
-		<button @click="() => { emit('login') }">返回</button>
-		<form @submit="Register">
-			<input type="text" name="username" placeholder="输入账户名">
-			<input type="text" name="nickname" placeholder="输入昵称">
-			<input type="text" name="email" placeholder="输入邮箱">
-			<input type="text" name="password" placeholder="输入密码" :password="true" v-model="password">
-			<input type="text" placeholder="确认密码" :password="true" v-model="checkPassword">
-			<button form-type="submit" :disabled="samepasswd">即刻注册</button>
+	<view class="card-container">
+		<!-- 标题 -->
+		<view class="header">
+			<text>注册</text>
+		</view>
+		<!-- <button @click="() => { emit('login') }">返回</button> -->
+		<!-- 表单 -->
+		<form class="form" @submit="Register">
+			<input class="input" type="text" name="username" placeholder="输入账户名">
+			<input class="input" type="text" name="nickname" placeholder="输入昵称">
+			<input class="input" type="text" name="email" placeholder="输入邮箱">
+			<input class="input" type="text" name="password" placeholder="输入密码" :password="true" v-model="password">
+			<input class="input" type="text" placeholder="确认密码" :password="true" v-model="checkPassword">
+			<button class="btn btn-primary" hover-class="btn-primary-hover" form-type="submit"
+				:disabled="samepasswd">即刻注册</button>
 		</form>
 	</view>
 </template>
@@ -81,4 +87,43 @@ const Register = async function (e: any) {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.header {
+	justify-content: space-between;
+	border-left: 8px solid var(--primary-color);
+	padding-left: 8px;
+	margin-top: 8px;
+	margin-bottom: 16px;
+	font-size: 1.25rem;
+}
+
+.form {
+	display: flex;
+	flex-direction: column;
+}
+
+.input {
+	width: auto;
+	/* display: inline-block; */
+	padding: 12px;
+	margin-bottom: 16px;
+	border-radius: 12px;
+	border: 1px, solid, lightgray;
+}
+
+.tool-container {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 16px;
+	margin: 4px 0;
+	color: darkgray;
+}
+
+.foot-note {
+	text-align: center;
+	font-size: 11px;
+	color: #c0c0c0;
+	margin-top: 8px;
+	line-height: 1.6;
+}
+</style>
