@@ -33,6 +33,7 @@ func CheckJWT() gin.HandlerFunc {
 		}
 		ctx.Set("Role", claim.Role)
 		ctx.Set("userId", claim.UserId)
+		// log.Printf("role:%s,userId:%s", claim.Role, claim.UserId)
 		ctx.Next()
 	}
 }

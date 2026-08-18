@@ -26,6 +26,7 @@ var (
 	ErrSignDataNoExist = models.NewBusinessError(400, "签到订单不存在")
 	ErrWrongUser       = models.NewBusinessError(400, "结算的用户有误")
 	ErrAlreadyFinished = models.NewBusinessError(400, "订单已经完成")
+	ErrExistPayData    = models.NewBusinessError(400, "存在尚未支付的订单")
 )
 
 func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (string, error) {
@@ -50,6 +51,14 @@ func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (s
 		}
 		if len(check) != 0 {
 			return ErrExistSignData
+		}
+		// 确定用户存在后继续查表,确保用户没有暂未支付的订单
+		payCheck, e := gorm.G[models.Pay](tx).Select("uuid").Where("user_id = ? AND status = 0", userId).Find(ctx)
+		if e != nil {
+			return models.NewDatabaseErr(e)
+		}
+		if len(payCheck) != 0 {
+			return ErrExistPayData
 		}
 		// 确认无误后添加新的签到数据
 		e = gorm.G[models.Sign](tx).Create(ctx, &newData)
@@ -199,6 +208,7 @@ func (s *SignService) FinishSignData(ctx context.Context, userId string, signId 
 		duration := now - data.StartAt
 		totalPrice := utils.CalculateTotalPrice(duration, 500)
 		// 构造支付订单数据,构造完成后插入数据
+		newPay.UserId = userId
 		newPay.BusinessId = data.UUID
 		newPay.Value = int64(totalPrice)
 		newPay.ExpireTime = time.Now().Add(30 * time.Minute).Unix()

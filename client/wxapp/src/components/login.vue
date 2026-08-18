@@ -81,6 +81,7 @@ const Login = async function (e: any) {
 			if (!ok) {
 				throw new Error("登录失败")
 			}
+            uni.$emit('userLogin')
 			uni.switchTab({ url: "index" })
 		}
 	} catch (error: any) {

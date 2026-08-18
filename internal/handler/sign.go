@@ -138,10 +138,12 @@ func (h *SignHandler) GetUserSignData(c *gin.Context) {
 		c.Error(ErrBindDataError)
 		return
 	}
+	// query := c.Query("status")
+	// status, _ := strconv.Atoi(query)
 	queryData := struct {
-		Status int64 `form:"status" binding:"required"`
+		Status int64 `form:"status"`
 	}{}
-	err := c.ShouldBindQuery(&queryData)
+	err := c.ShouldBind(&queryData)
 	if err != nil {
 		c.Error(ErrBindDataError)
 		return
@@ -195,7 +197,7 @@ func (h *SignHandler) FinishSignData(c *gin.Context) {
 		return
 	}
 	resp.Data = gin.H{
-		"pay_id": res,
+		"payId": res,
 	}
 	c.JSON(http.StatusOK, resp)
 }

@@ -9,6 +9,7 @@ type Pay struct {
 	Basic
 	BusinessType  string
 	BusinessId    string `gorm:"unique"`
+	UserId        string
 	Value         int64
 	Status        int64
 	PayMethods    int64
