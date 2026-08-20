@@ -18,6 +18,17 @@ type Pay struct {
 	PayAt         int64
 }
 
+type PayRes struct {
+	UUID         string `json:"payId"`
+	BusinessType string `json:"businessType"`
+	BusinessId   string `json:"businessId"`
+	UserId       string `json:"userId"`
+	Value        int64  `json:"value"`
+	Status       int64  `json:"status"`
+	ExpireTime   int64  `json:"expire_time"`
+	PayAt        int64  `json:"pay_at"`
+}
+
 func (p *Pay) BeforeCreate(tx *gorm.DB) (err error) {
 	p.UUID = uuid.NewString()
 	// log.Println(u.UUID)

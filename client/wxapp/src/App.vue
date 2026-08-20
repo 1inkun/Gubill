@@ -40,6 +40,7 @@ page {
 	padding: 16px;
 	border-radius: 24px;
 	background-color: var(--card-background-color);
+	margin-bottom: 16px;
 }
 
 .header {

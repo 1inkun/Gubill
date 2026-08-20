@@ -23,6 +23,12 @@
 			"style": {
 				"navigationBarTitleText": "登录"
 			}
+		},
+		{
+			"path": "pages/payOrders",
+			"style": {
+				"navigationBarTitleText": "全部订单"
+			}
 		}
 	],
 	"globalStyle": {

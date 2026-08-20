@@ -1,6 +1,9 @@
 <template>
 	<view class="content">
 		<view v-if="loginStatus">
+			<UserInfo />
+			<UserTools />
+			<RecentPayOrder />
 			<button class="btn btn-error" @click="Logout">登出</button>
 		</view>
 		<view v-else>
@@ -11,6 +14,9 @@
 
 <script setup lang="ts">
 import NeedLogin from '@/components/needLogin.vue';
+import RecentPayOrder from '@/components/recentPayOrder.vue';
+import UserInfo from '@/components/userInfo.vue';
+import UserTools from '@/components/userTools.vue';
 import CheckLoginStatus from '@/utils/checkLoginStatus';
 import { onMounted, ref } from 'vue';
 

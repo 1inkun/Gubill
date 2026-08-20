@@ -6,6 +6,7 @@ import (
 
 	"github.com/1inkun/Gubill/internal/handler"
 	"github.com/1inkun/Gubill/internal/middlewares"
+	"github.com/1inkun/Gubill/internal/repository"
 	"github.com/1inkun/Gubill/internal/service"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -33,14 +34,20 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 
 	// 中间件
 	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
+	// 初始化仓储层
+	payQuery := repository.NewPayQuery(db)
 
+	// 初始化服务层
 	userService := service.NewUserService(db)
 	signService := service.NewSignService(db)
 	memberService := service.NewMemberService(db)
+	payService := service.NewPayService(payQuery)
 
+	// 初始化控制层
 	userHandler := handler.NewUserHandler(userService)
 	sighHandler := handler.NewSignHandler(signService)
 	memberHandler := handler.NewMemberHandler(memberService)
+	payHandler := handler.NewPayHandler(payService)
 
 	apiv1 := r.Group("/api/v1")
 	user := apiv1.Group("/user")
@@ -84,6 +91,12 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 		memberOrder.DELETE("/:order_id", memberHandler.CancelMemberOrder)
 		// 结算用户自己的**会员订单**
 		memberOrder.POST("/:order_id", memberHandler.FinishMemberOrder)
+	}
+	pay := apiv1.Group("/pay")
+	{
+		pay.Use(middlewares.CheckJWT())
+		pay.GET("", payHandler.GetUserPayOrders)
+
 	}
 	return r
 }

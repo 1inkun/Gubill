@@ -28,10 +28,21 @@ type SignData = {
 };
 
 type GenSignRes = {
-    signId: string
+	signId: string
 }
 
 type FinishSignRes = {
-    payId: string
+	payId: string
 }
-export type { LoginData, LoginRes, RegisterData, RegisterRes, SignData, GenSignRes, FinishSignRes};
+
+type PayRes = {
+	payId: string,
+	businessType: string,
+	businessId: string,
+	userId: string,
+	value: number,
+	status: number,
+	expire_time: number,
+	pay_at: number,
+}
+export type { LoginData, LoginRes, RegisterData, RegisterRes, SignData, GenSignRes, FinishSignRes, PayRes };
