@@ -25,18 +25,21 @@ func (h *PayHandler) GetUserPayOrders(c *gin.Context) {
 		c.Error(ErrBindDataError)
 		return
 	}
-	var pagin models.Pagin
-	c.MustBindWith(&pagin, binding.Query)
+	queryData := struct {
+		Status int64 `form:"status"`
+		models.Pagin
+	}{}
+	c.MustBindWith(&queryData, binding.Query)
 	// 服务层
-	res, err := h.payService.GetUserPayOrders(ctx, userId.(string), pagin.Page, pagin.PageSize)
+	res, err := h.payService.GetUserPayOrders(ctx, userId.(string), queryData.Page, queryData.PageSize)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 	resp.Data = gin.H{
 		"results":  res,
-		"page":     pagin.Page,
-		"pageSize": pagin.PageSize,
+		"page":     queryData.Page,
+		"pageSize": queryData.PageSize,
 	}
 	c.JSON(http.StatusOK, resp)
 }

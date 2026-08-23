@@ -2,19 +2,19 @@ package service
 
 import (
 	"context"
-	"errors"
+	"log"
 
 	"github.com/1inkun/Gubill/internal/models"
+	"github.com/1inkun/Gubill/internal/repository"
 	"github.com/1inkun/Gubill/internal/utils"
-	"gorm.io/gorm"
 )
 
 type UserService struct {
-	db *gorm.DB
+	userQuery *repository.UserQuery
 }
 
-func NewUserService(db *gorm.DB) *UserService {
-	return &UserService{db: db}
+func NewUserService(userQuery *repository.UserQuery) *UserService {
+	return &UserService{userQuery: userQuery}
 }
 
 var (
@@ -24,21 +24,12 @@ var (
 	ErrWrongEmaiOrUserName = models.NewBusinessError(401, "用户名或邮箱已被占用")
 )
 
-func (s *UserService) Login(ctx context.Context, username string, password string) (string, error) {
-	var userDatas []models.User
-	userDatas, err := gorm.G[models.User](s.db).Where("username = ?", username).Limit(1).Find(ctx)
+func (s *UserService) Login(ctx context.Context, bodyData models.LoginData) (string, error) {
+	var userData models.User
+	userData, err := s.userQuery.Login(ctx, bodyData.Username, bodyData.Password)
 	if err != nil {
-		return "", models.NewDatabaseErr(err)
+		return "", err
 	}
-	if len(userDatas) == 0 {
-		return "", ErrNoSuchUser
-	}
-	userData := userDatas[0]
-	// 比对密码哈希
-	if _, err := utils.CheckPassword(userData.PasswordHash, password); err != nil {
-		return "", ErrWrongPasswd
-	}
-	// 登录成功,生成JWT
 	tokenString, err := utils.GenNewJWT(userData)
 	if err != nil {
 		ErrFailGenJWT := models.NewInternalError(500, "登录失败", err)
@@ -47,24 +38,29 @@ func (s *UserService) Login(ctx context.Context, username string, password strin
 	return tokenString, nil
 }
 
-func (s *UserService) Register(ctx context.Context, username string, nickname string, password string, email string) (string, error) {
-	var newData models.User
-	passwordHash, err := utils.GenNewPasswdHash(password)
+func (s *UserService) Register(ctx context.Context, data models.RegisterData) (string, error) {
+	// var newData models.User
+	passwordHash, err := utils.GenNewPasswdHash(data.Password)
 	if err != nil {
+		log.Println(err.Error())
 		ErrFailGenPasswdHash := models.NewInternalError(500, "注册失败", err)
 		return "", ErrFailGenPasswdHash
 	}
-	newData.UserName = username
-	newData.NickName = nickname
-	newData.PasswordHash = passwordHash
-	newData.Email = email
+	// newData.UserName = username
+	// newData.NickName = nickname
+	// newData.PasswordHash = passwordHash
+	// newData.Email = email
 	// 直接插入数据,利用唯一性标签处理用户名和邮箱占用
-	err = gorm.G[models.User](s.db).Create(ctx, &newData)
+	// err = gorm.G[models.User](s.db).Create(ctx, &newData)
+	// if err != nil {
+	// 	if errors.Is(err, gorm.ErrDuplicatedKey) {
+	// 		return "", ErrWrongEmaiOrUserName
+	// 	}
+	// 	return "", models.NewDatabaseErr(err)
+	// }
+	userId, err := s.userQuery.Register(ctx, data.UserName, data.NickName, passwordHash, data.Email)
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return "", ErrWrongEmaiOrUserName
-		}
-		return "", models.NewDatabaseErr(err)
+		return "", err
 	}
-	return newData.UUID, nil
+	return userId, nil
 }

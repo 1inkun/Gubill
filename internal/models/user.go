@@ -26,6 +26,18 @@ type User struct {
 	RegisterDate  int64
 }
 
+type LoginData struct {
+	Username string `json:"username" binding:"required,alphanum,min=4,max=20"`
+	Password string `json:"password" binding:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789"`
+}
+
+type RegisterData struct {
+	UserName string `json:"username" binding:"required,alphanum,min=4,max=20"`
+	NickName string `json:"nickname" binding:"min=0,max=16"`
+	Password string `json:"password" binding:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789"`
+	Email    string `json:"email" binding:"required,email"`
+}
+
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	u.UUID = uuid.NewString()
 	// log.Println(u.UUID)

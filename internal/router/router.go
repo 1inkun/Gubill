@@ -36,10 +36,12 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 	r.Use(middlewares.RateLimiter(), middlewares.ErrHandler())
 	// 初始化仓储层
 	payQuery := repository.NewPayQuery(db)
+	userQuery := repository.NewUserQuery(db)
+	signQuery := repository.NewSignQuery(db)
 
 	// 初始化服务层
-	userService := service.NewUserService(db)
-	signService := service.NewSignService(db)
+	userService := service.NewUserService(userQuery)
+	signService := service.NewSignService(signQuery)
 	memberService := service.NewMemberService(db)
 	payService := service.NewPayService(payQuery)
 
@@ -111,9 +113,11 @@ func InitAdminRouter(db *gorm.DB) *gin.Engine {
 	}
 	r := gin.Default()
 	r.Use(middlewares.RateLimiter(), middlewares.CheckJWT(), middlewares.ErrHandler())
+	// 构造query
+	signQuery := repository.NewSignQuery(db)
 	// 构造Service
 	memberService := service.NewMemberService(db)
-	signService := service.NewSignService(db)
+	signService := service.NewSignService(signQuery)
 	// 构造Handler
 	memberHandler := handler.NewMemberHandler(memberService)
 	signHandler := handler.NewSignHandler(signService)
