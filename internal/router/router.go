@@ -98,7 +98,7 @@ func InitRouter(db *gorm.DB) *gin.Engine {
 	{
 		pay.Use(middlewares.CheckJWT())
 		pay.GET("", payHandler.GetUserPayOrders)
-
+		pay.GET("/:payId", payHandler.GetUserPayOrdersById)
 	}
 	return r
 }

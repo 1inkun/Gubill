@@ -6,8 +6,34 @@
 		<view v-if="datas == undefined">
 			<text>未找到数据</text>
 		</view>
-		<view v-else v-for="data in datas" class="secondary-card">
-			{{ data }}
+		<view v-else v-for="data in datas" >
+            <view class="secondary-card order" @click="goToPay(data.payId)">
+                <view class="item-container type">
+                    <view v-if="data.businessType == 'sign'">
+                        <text>签到订单</text>
+                    </view>
+                    <view v-else-if="data.businessType == 'member'">
+                        <text>会员订单</text>
+                    </view>
+                    <view v-if="data.status == 0" class="badge">
+                        <text>未支付</text>
+                    </view>
+                    <view v-if="data.status == 1" class="badge">
+                        <text>已完成</text>
+                    </view>
+                    <view v-if="data.status == -1" class="badge">
+                        <text>已取消</text>
+                    </view>
+                </view>
+                <view class="item-container"></view>
+                <view class="item-container">
+                    <text>总价:</text>
+                    <view class="price">
+                        <text>{{ `${data.value / 100} ¥` }}</text>
+                    </view>
+                </view>
+                <!-- {{ data }} -->
+            </view>
 		</view>
 	</view>
 </template>
@@ -52,9 +78,31 @@ const GetRecentPayOrder = async function () {
 		uni.hideLoading()
 	}
 }
+
+const goToPay = function(payId:string) {
+    uni.navigateTo({ url: `/pages/pay?payId=${payId}` })
+}
 onMounted(() => {
 	GetRecentPayOrder()
 })
 </script>
 
-<style scoped></style>
+<style scoped>
+.order {
+    display: flex;
+    flex-direction: column;
+}
+.item-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+.type {
+    font-size: 1.25rem;
+}
+.price {
+    font-weight: 600;
+    color: var(--error-color-hover);
+}
+</style>

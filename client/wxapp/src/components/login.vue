@@ -27,6 +27,7 @@ import { LoginData, LoginRes } from '@/types/components';
 import CONFIG from '@/static/config.json'
 import { ResponseData, UserInfo, CustomJWTClaims } from '@/types/global';
 import { jwtDecode } from "jwt-decode";
+import { ShowErrMsg } from '@/utils/toast';
 
 const emit = defineEmits(['register'])
 const instance = NewInstance(CONFIG.Server.baseUrl, "")
@@ -35,11 +36,13 @@ const checkUsername = /^[A-Za-z0-9]{4,20}$/
 
 const checkLoginInfo = function (loginData: LoginData): boolean {
 	if (!checkPasswd.test(loginData.password)) {
-		console.error("密码有误")
+		// console.error("用户名或密码有误")
+        ShowErrMsg("用户名或密码有误")
 		return false
 	}
 	if (!checkUsername.test(loginData.username)) {
-		console.error("用户名有误")
+		// console.error("用户名或密码有误")
+        ShowErrMsg("用户名或密码有误")
 		return false
 	}
 	return true
@@ -97,7 +100,8 @@ const Login = async function (e: any) {
 			uni.switchTab({ url: "index" })
 		}
 	} catch (error: any) {
-		console.error(error)
+        const res = error.response.data
+		console.error(res)
 	} finally {
 		uni.hideLoading()
 	}

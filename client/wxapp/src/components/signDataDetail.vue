@@ -32,7 +32,7 @@ import NewInstance from "@/api/instance";
 import { FinishSignRes, SignData } from "@/types/components";
 import CONFIG from "@/static/config.json";
 import { ResponseData } from "@/types/global";
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import CalcTotalValue from "@/utils/calcTotalValue";
 
 const props = defineProps<{
@@ -42,14 +42,7 @@ const emit = defineEmits(["finish"]);
 let intervalID: number = 0;
 const duration = ref(`0小时0分钟`);
 
-const totalValue = computed(() => {
-	const data = props.data;
-    const now = ref(Math.ceil(Date.now() / 1000));
-	if (data != undefined) {
-		const d = now.value - data.start_at;
-		return CalcTotalValue(d, 500);
-	}
-});
+const totalValue = ref(0)
 
 const startTime = computed(() => {
 	const data = props.data;
@@ -110,12 +103,16 @@ const calcDuration = function () {
 			mins -= hours * 60;
 		}
 		duration.value = `${hours}小时${mins}分钟`;
+		totalValue.value = CalcTotalValue(d, 500);
 	}
 };
 onMounted(() => {
     calcDuration()
 	intervalID = setInterval(calcDuration, 6000);
 });
+onBeforeUnmount(()=>{
+    clearInterval(intervalID)
+})
 </script>
 
 <style scoped>

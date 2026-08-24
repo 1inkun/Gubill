@@ -20,7 +20,7 @@ func NewUserQuery(db *gorm.DB) *UserQuery {
 var (
 	ErrNoSuchUser          = models.NewBusinessError(401, "用户名或密码错误")
 	ErrUserAlreadyExist    = models.NewBusinessError(400, "该用户名已被注册")
-	ErrWrongPasswd         = models.NewBusinessError(401, "密码错误")
+	ErrWrongPasswd         = models.NewBusinessError(401, "用户名或密码错误")
 	ErrWrongEmaiOrUserName = models.NewBusinessError(401, "用户名或邮箱已被占用")
 )
 

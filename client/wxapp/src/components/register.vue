@@ -24,6 +24,7 @@ import { RegisterData, RegisterRes } from '@/types/components'
 import { computed, ref } from 'vue'
 import CONFIG from '@/static/config.json'
 import { ResponseData } from '@/types/global'
+import { ShowSuccessMsg } from '@/utils/toast'
 
 const emit = defineEmits(['success', 'login'])
 const instance = NewInstance(CONFIG.Server.baseUrl, "")
@@ -75,12 +76,14 @@ const Register = async function (e: any) {
 			if (res.data.userId != undefined) {
 				// 登录成功触发success事件
 				emit('success')
+                ShowSuccessMsg("注册成功")
 				return
 			}
 		}
 		throw new Error("未知错误")
 	} catch (error: any) {
-		console.error(error)
+		const res = error.response.data
+		console.error(res)
 	} finally {
 		uni.hideLoading()
 	}

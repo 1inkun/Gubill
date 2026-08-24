@@ -43,3 +43,22 @@ func (h *PayHandler) GetUserPayOrders(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, resp)
 }
+
+func (h *PayHandler) GetUserPayOrdersById(c *gin.Context) {
+	resp := models.NewResponse(200, "success", "获取成功", nil)
+	ctx := c.Request.Context()
+	userId, exist := c.Get("userId")
+	if !exist {
+		c.Error(ErrBindDataError)
+		return
+	}
+	payId := c.Param("payId")
+	// 服务层
+	res, err := h.payService.GetUserPayOrdersById(ctx, userId.(string), payId)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	resp.Data = res
+	c.JSON(http.StatusOK, resp)
+}

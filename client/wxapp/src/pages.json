@@ -29,6 +29,18 @@
 			"style": {
 				"navigationBarTitleText": "全部订单"
 			}
+		},
+		{
+			"path": "pages/signOrders",
+			"style": {
+				"navigationBarTitleText": "签到记录"
+			}
+		},
+		{
+			"path": "pages/pay",
+			"style": {
+				"navigationBarTitleText": "支付"
+			}
 		}
 	],
 	"globalStyle": {

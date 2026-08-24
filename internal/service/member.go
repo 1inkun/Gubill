@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/1inkun/Gubill/internal/models"
+	"github.com/1inkun/Gubill/internal/repository"
 	"github.com/1inkun/Gubill/internal/utils"
 	"gorm.io/gorm"
 )
@@ -131,7 +132,7 @@ func (s *MemberService) GenMemberPlanOrder(ctx context.Context, userId string, p
 			return models.NewDatabaseErr(e)
 		}
 		if len(checkUser) == 0 {
-			return ErrNoSuchUser
+			return repository.ErrNoSuchUser
 		}
 		checkPlan, e = gorm.G[models.MemberPlan](tx).Select("uuid").Where("uuid = ?", planId).Limit(1).Find(ctx)
 		if e != nil {

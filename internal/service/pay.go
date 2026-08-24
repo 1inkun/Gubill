@@ -30,3 +30,14 @@ func (s *PayService) GetUserPayOrders(ctx context.Context, userId string, page i
 	_ = nums
 	return res, nil
 }
+
+func (s *PayService) GetUserPayOrdersById(ctx context.Context, userId string, payId string) (models.PayRes, error) {
+	res, err := s.payQuery.GetPayOrdersById(ctx, payId)
+	if err != nil {
+		return models.PayRes{}, err
+	}
+	if res.UserId != userId {
+		return models.PayRes{}, ErrWrongUser
+	}
+	return res, nil
+}

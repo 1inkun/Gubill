@@ -4,6 +4,10 @@
 			<!-- 图标 -->
 			<text>全部订单</text>
 		</view>
+        <view class="tool-item" @click="goToSignOrders()">
+			<!-- 图标 -->
+			<text>签到记录</text>
+		</view>
 	</view>
 </template>
 
@@ -11,11 +15,15 @@
 const goToPayOrders = function () {
 	uni.navigateTo({ url: "payOrders" })
 }
+const goToSignOrders = function () {
+	uni.navigateTo({ url: "signOrders" })
+}
 </script>
 
 <style scoped>
 .card-container {
 	flex-direction: row;
+    justify-content: space-around;
 }
 
 .tool-item {

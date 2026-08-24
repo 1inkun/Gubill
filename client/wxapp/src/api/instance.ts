@@ -1,12 +1,12 @@
-import { un,UnInstance } from "@uni-helper/uni-network";
+import { un, UnInstance } from "@uni-helper/uni-network";
 
-const NewInstance = function (baseUrl:string,tokenStr:string):UnInstance {
+const NewInstance = function (baseUrl: string, tokenStr: string): UnInstance {
 	const instance = un.create({
 		baseUrl: baseUrl,
 		timeout: 1000,
-		headers: { "Authorization": tokenStr },
+		headers: { Authorization: tokenStr },
 	});
-    return instance
+	return instance;
 };
 
 export default NewInstance;

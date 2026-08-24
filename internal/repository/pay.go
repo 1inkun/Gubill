@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log"
 
 	"github.com/1inkun/Gubill/internal/models"
 	"github.com/1inkun/Gubill/internal/utils"
@@ -33,4 +34,26 @@ func (q *PayQuery) GetUserPayOrderDataNums(ctx context.Context, userId string) (
 	}
 	nums := len(rowDatas)
 	return int64(nums), err
+}
+
+func (q *PayQuery) GetPayOrdersById(ctx context.Context, payId string) (models.PayRes, error) {
+	data, err := gorm.G[models.Pay](q.db).Where("uuid = ?", payId).First(ctx)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return models.PayRes{}, ErrExistPayData
+		}
+		log.Println(err)
+		return models.PayRes{}, models.NewDatabaseErr(err)
+	}
+	var res = models.PayRes{
+		UUID:         data.UUID,
+		BusinessType: data.BusinessType,
+		BusinessId:   data.BusinessId,
+		UserId:       data.UserId,
+		Value:        data.Value,
+		Status:       data.Status,
+		ExpireTime:   data.ExpireTime,
+		PayAt:        data.PayAt,
+	}
+	return res, nil
 }
