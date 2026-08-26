@@ -61,6 +61,12 @@ page {
 	background-color: var(--background-color);
 }
 
+.item-container {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
 .item {
 	display: inline-flex;
 	flex-direction: row;

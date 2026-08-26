@@ -36,10 +36,20 @@ func (s *SignService) GenerateNewSignData(ctx context.Context, userId string) (s
 	return orderId, nil
 }
 
-func (s *SignService) GetUserSignData(ctx context.Context, userId string, status int64, page int, pageSize int) ([]models.SignRes, error) {
-	results, err := s.signQuery.GetUserSignData(ctx, userId, status, page, pageSize)
+func (s *SignService) GetUserSignData(ctx context.Context, userId string, status int64, page int, pageSize int) (models.PaginData, error) {
+	datas, err := s.signQuery.GetUserSignData(ctx, userId, status, page, pageSize)
 	if err != nil {
-		return nil, err
+		return models.PaginData{}, err
+	}
+	count, err := s.signQuery.GetUserSignRecordCount(ctx, userId)
+	if err != nil {
+		return models.PaginData{}, err
+	}
+	var results = models.PaginData{
+		Results:  datas,
+		Page:     page,
+		PageSize: pageSize,
+		Total:    count,
 	}
 	return results, nil
 }

@@ -18,7 +18,7 @@ import NewInstance from '@/api/instance';
 import CheckLoginStatus from '@/utils/checkLoginStatus';
 import { onMounted, ref } from 'vue';
 import CONFIG from '@/static/config.json'
-import { ResponseData } from '@/types/global';
+import { PaginData, ResponseData } from '@/types/global';
 import { SignData } from '@/types/components'
 import SignDataDetail from '@/components/signDataDetail.vue';
 import NeedLogin from '@/components/needLogin.vue';
@@ -32,7 +32,7 @@ const checkCurrentSignData = async function (tokenStr: string) {
 	})
 	const instance = NewInstance(CONFIG.Server.baseUrl, tokenStr)
 	try {
-		const resp = await instance<ResponseData<SignData>>({
+		const resp = await instance<ResponseData<PaginData<SignData>>>({
 			url: '/sign?status=0',
 			method: 'GET'
 		})
@@ -41,8 +41,8 @@ const checkCurrentSignData = async function (tokenStr: string) {
 			throw new Error(res?.msg)
 		}
 		const data = res.data
-		if (Array.isArray(data)) {
-			currentSignData.value = data[0]
+		if (!Array.isArray(data)) {
+			currentSignData.value = data.results[0]
 		}
 	} catch (error: any) {
 		console.error(error)
@@ -79,6 +79,7 @@ const getCurrentSignData = async function (signId: string) {
 
 const finishSign = function (payId: string) {
 	currentSignData.value = undefined
+	uni.navigateTo({ url: `/pages/pay?payId=${payId}` })
 }
 
 onMounted(() => {

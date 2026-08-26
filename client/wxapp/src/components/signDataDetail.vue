@@ -17,11 +17,7 @@
 			<view>本次签到开始于:</view>
 			<view>{{ startTime }}</view>
 		</view>
-		<button
-			class="btn btn-primary"
-			hover-class="btn-primary-hover"
-			@click="submit"
-		>
+		<button class="btn btn-primary" hover-class="btn-primary-hover" @click="submit">
 			即刻结算
 		</button>
 	</view>
@@ -34,6 +30,7 @@ import CONFIG from "@/static/config.json";
 import { ResponseData } from "@/types/global";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import CalcTotalValue from "@/utils/calcTotalValue";
+import FormatDate from "@/utils/formatDate";
 
 const props = defineProps<{
 	data?: SignData;
@@ -47,12 +44,14 @@ const totalValue = ref(0)
 const startTime = computed(() => {
 	const data = props.data;
 	if (data != undefined) {
-		const date = new Date(data.start_at * 1000);
-		let year = date.getFullYear();
-		let month = date.getMonth() + 1;
-		let day = date.getDate();
-		return `${year} - ${month} - ${day}`;
+		// const date = new Date(data.start_at * 1000);
+		// let year = date.getFullYear();
+		// let month = date.getMonth() + 1;
+		// let day = date.getDate();
+		// return `${year} - ${month} - ${day}`;
+		return FormatDate(data.start_at)
 	}
+	return ``
 });
 
 const submit = async function () {
@@ -107,11 +106,11 @@ const calcDuration = function () {
 	}
 };
 onMounted(() => {
-    calcDuration()
+	calcDuration()
 	intervalID = setInterval(calcDuration, 6000);
 });
-onBeforeUnmount(()=>{
-    clearInterval(intervalID)
+onBeforeUnmount(() => {
+	clearInterval(intervalID)
 })
 </script>
 

@@ -70,12 +70,28 @@ func (q *SignQuery) GenerateNewSignData(ctx context.Context, userId string) (str
 
 func (q *SignQuery) GetUserSignData(ctx context.Context, userId string, status int64, page int, pageSize int) ([]models.SignRes, error) {
 	var results []models.SignRes
-	tx := q.db.Model(models.Sign{}).WithContext(ctx).Where("user_id = ? AND status = ?", userId, status).Scopes(utils.Paginate(page, pageSize)).Find(&results, &models.SignRes{})
+	var tx *gorm.DB
+	if status == -1 {
+		tx = q.db.Model(models.Sign{}).WithContext(ctx).Where("user_id = ?", userId).Scopes(utils.Paginate(page, pageSize)).Find(&results, &models.SignRes{})
+	} else {
+		tx = q.db.Model(models.Sign{}).WithContext(ctx).Where("user_id = ? AND status = ?", userId, status).Scopes(utils.Paginate(page, pageSize)).Find(&results, &models.SignRes{})
+	}
 	if tx.Error != nil {
 		log.Println(tx.Error.Error())
 		return nil, models.NewDatabaseErr(tx.Error)
 	}
 	return results, nil
+}
+
+func (q *SignQuery) GetUserSignRecordCount(ctx context.Context, userId string) (int, error) {
+	var count int
+	tx := q.db.Raw("SELECT count(*) FROM signs WHERE user_id = ?;", userId).Find(&count)
+	if tx.Error != nil {
+		log.Println(tx.Error)
+		return 0, models.NewDatabaseErr(tx.Error)
+	}
+	log.Println(count)
+	return count, nil
 }
 
 func (q *SignQuery) GetSignDataById(ctx context.Context, signId string) (models.SignRes, error) {

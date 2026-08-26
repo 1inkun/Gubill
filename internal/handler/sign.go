@@ -144,9 +144,7 @@ func (h *SignHandler) GetUserSignData(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	if len(res) != 0 {
-		resp.Data = res
-	}
+	resp.Data = res
 	c.JSON(http.StatusOK, resp)
 }
 

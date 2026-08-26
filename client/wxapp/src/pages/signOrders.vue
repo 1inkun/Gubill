@@ -1,5 +1,5 @@
 <template>
-    <view>签到记录</view>
+	<view class="content"></view>
 </template>
 
 <script setup lang="ts">
