@@ -1,0 +1,12 @@
+light-mode:
+  --background-color: "#f5f5f5" 
+  --card-background-color: "#ffffff"
+  --primary-color: "#8acbec"
+  --primary-color-hover: "#95cdff"
+  --error-color: "#fce4ec"
+  --error-color-hover: "#f8bbd0"
+  --success-color: "#e0f2f1"
+  --success-color-hover: "#b2dfdb"
+dark-mode:
+  --background-color: "#212121"
+  --card-background-color: "#303030"

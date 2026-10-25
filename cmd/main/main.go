@@ -1,73 +1,52 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
-	"github.com/1inkun/Gubill/internal/config"
-	"github.com/1inkun/Gubill/internal/repository"
-	"github.com/1inkun/Gubill/internal/router"
+	"github.com/1inkun/billApp/config"
+	"github.com/1inkun/billApp/internal/repositories/mysql"
+	"github.com/1inkun/billApp/internal/repositories/redis"
+	"github.com/1inkun/billApp/internal/routers"
 	"golang.org/x/sync/errgroup"
 )
 
-var (
-	g errgroup.Group
-)
-
 func main() {
-	config.InitConfig()
-	db, err := repository.InitDatabaseConnect()
+	// 读取配置文件
+	cfg, err := config.NewConfig()
 	if err != nil {
-		log.Fatalf("数据库连接错误:%s", err.Error())
+		log.Fatalln("出现致命错误，服务启动失败")
 	}
-	server := http.Server{
-		Addr:    os.Getenv("ServerAddr"),
-		Handler: router.InitRouter(db),
+	// log.Println(cfg)
+	// 连接数据库
+	db, err := mysql.NewDBConection(cfg.MySql)
+	if err != nil {
+		log.Fatalln("出现致命错误，服务启动失败")
 	}
-	serverAdmin := http.Server{
-		Addr:    os.Getenv("ServerAdminAddr"),
-		Handler: router.InitAdminRouter(db),
+	defer db.Close()
+	// 连接Redis
+	rdb, err := redis.NewRSConection(cfg.Redis)
+	if err != nil {
+		log.Fatalln("出现致命错误，服务启动失败")
 	}
-	// // 用户侧服务
-	// g.Go(func() error {
-	// 	return server.ListenAndServe()
-	// })
-	// // 管理侧服务
-	// g.Go(func() error {
-	// 	return serverAdmin.ListenAndServe()
-	// })
-	// if err := g.Wait(); err != nil && err != http.ErrServerClosed {
-	// 	log.Fatal(err)
-	// }
-	// 用户侧服务
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalln("用户服务出错")
+	defer rdb.Close()
+	// 初始化路由
+	r := routers.NewRouter(db, rdb)
+	serverMux := http.Server{
+		Addr:    cfg.Server.Addr,
+		Handler: r,
+	}
+	// 启动服务器
+	var eg = errgroup.Group{}
+	eg.Go(func() error {
+		log.Println("服务启动成功，端口:8080")
+		err := serverMux.ListenAndServe()
+		if err != nil {
+			return err
 		}
-	}()
-	go func() {
-		if err := serverAdmin.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalln("管理服务出错")
-		}
-	}()
-	// 优雅关停
-	// 等待中断信号，以便在5秒后优雅关停服务器
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println("Shutdown Server ...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		log.Println("Server Shutdown:", err)
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		log.Fatalln("出现致命错误，服务器已关闭!!")
 	}
-	if err := serverAdmin.Shutdown(ctx); err != nil {
-		log.Println("Server Shutdown:", err)
-	}
-	log.Println("Server exiting")
 }

@@ -1,0 +1,66 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": { "navigationBarTitleText": "签到" }
+		},
+		{
+			"path": "pages/member/member",
+			"style": { "navigationBarTitleText": "会员购买" }
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": { "navigationBarTitleText": "我的" }
+		},
+		{
+			"path": "pages/orders/orders",
+			"style": { "navigationBarTitleText": "历史签到记录", "enablePullDownRefresh": true }
+		},
+		{
+			"path": "pages/pay-orders/pay-orders",
+			"style": { "navigationBarTitleText": "我的支付订单", "enablePullDownRefresh": true }
+		},
+		{
+			"path": "pages/pay-order-detail/pay-order-detail",
+			"style": { "navigationBarTitleText": "支付订单详情" }
+		},
+		{
+			"path": "pages/login/login",
+			"style": { "navigationBarTitleText": "登录" }
+		},
+		{
+			"path": "pages/register/register",
+			"style": { "navigationBarTitleText": "注册" }
+		},
+		{
+			"path": "pages/order-detail/order-detail",
+			"style": { "navigationBarTitleText": "订单详情" }
+		},
+		{
+			"path": "pages/setting/setting",
+			"style": { "navigationBarTitleText": "设置" }
+		},
+		{
+			"path": "pages/user-info/user-info",
+			"style": { "navigationBarTitleText": "用户信息设置" }
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "@navTxtStyle",
+		"navigationBarTitleText": "场馆计时计费",
+		"navigationBarBackgroundColor": "@navBgColor",
+		"backgroundColor": "@bgColor",
+		"backgroundTextStyle": "@bgTxtStyle"
+	},
+	"tabBar": {
+		"color": "@tabFontColor",
+		"selectedColor": "@tabSelectedColor",
+		"backgroundColor": "@tabBgColor",
+		"borderStyle": "@tabBorderStyle",
+		"list": [
+			{ "pagePath": "pages/index/index", "text": "签到" },
+			{ "pagePath": "pages/member/member", "text": "会员购买" },
+			{ "pagePath": "pages/profile/profile", "text": "我的" }
+		]
+	}
+}

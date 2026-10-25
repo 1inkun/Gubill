@@ -1,45 +1,34 @@
 package models
 
-import (
-	"github.com/google/uuid"
-	"gorm.io/gorm"
-)
-
-type Basic struct {
-	UUID      string `gorm:"primaryKey;unique;column:uuid"`
-	CreatedAt int
-	UpdatedAt int
-	DeletedAt gorm.DeletedAt
+type LoginRequest struct {
+	Username string `json:"username" binding:"required,min=4,max=20" example:"username"`
+	Password string `json:"password" binding:"required,min=6,max=32" example:"password"`
 }
 
-type User struct {
-	Basic
-	UserName      string `gorm:"unique;column:username;index"`
-	NickName      string `gorm:"column:nickname"`
-	AvatarFile    string
-	Email         string `gorm:"unique"`
-	PasswordHash  string
-	Role          string
-	LastLoginIP   string
-	LastLoginDate int64
-	RegisterIP    string
-	RegisterDate  int64
+type RegisterRequest struct {
+	Username string `json:"username" binding:"required,min=4,max=20" example:"username"`
+	Nickname string `json:"nickname" example:"宇宙无敌暴龙战神"`
+	Password string `json:"password" binding:"required,min=6,max=32" example:"zxc123"`
+	Email    string `json:"email" binding:"required,email" example:"2233@123.com"`
 }
 
-type LoginData struct {
-	Username string `json:"username" binding:"required,alphanum,min=4,max=20"`
-	Password string `json:"password" binding:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789"`
-}
-
+// 向数据库添加的用户信息
 type RegisterData struct {
-	UserName string `json:"username" binding:"required,alphanum,min=4,max=20"`
-	NickName string `json:"nickname" binding:"min=0,max=16"`
-	Password string `json:"password" binding:"required,min=6,max=30,containsany=abcdefghijklmnopqrstuvwxyz,containsany=0123456789"`
-	Email    string `json:"email" binding:"required,email"`
+	Username   string
+	Nickname   string
+	PasswdHash string
+	Email      string
 }
 
-func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-	u.UUID = uuid.NewString()
-	// log.Println(u.UUID)
-	return nil
+// JWT载荷
+type JwtClaims struct {
+	UserId   int64  `json:"user_id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+}
+
+// 登录成功
+
+type LoginSuccess struct {
+	Token string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTc4MDAwMDAwMH0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"`
 }

@@ -1,56 +1,66 @@
 package utils
 
 import (
-	"errors"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
-	"github.com/1inkun/Gubill/internal/models"
+	"github.com/1inkun/billApp/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type JWTClaims struct {
-	UserId   string `json:"userId"`
+type Claims struct {
+	// Exp      int64
+	// Iat      int64
+	UserId   int64  `json:"user_id"`
 	Username string `json:"username"`
-	Nickname string `json:"nickname"`
 	Role     string `json:"role"`
 	jwt.RegisteredClaims
 }
 
-func GenNewJWT(userData models.User) (string, error) {
-	signingKey := []byte(os.Getenv("JWTSalt"))
-	claims := JWTClaims{
-		userData.UUID,
-		userData.UserName,
-		userData.NickName,
-		userData.Role,
-		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(6 * time.Hour)),
-			Issuer:    "Server",
-		},
-	}
-	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := t.SignedString(signingKey)
+func GenerateJWT(claim models.JwtClaims) (string, error) {
+	secret := os.Getenv("secret")
+	exptime, err := strconv.Atoi(os.Getenv("exptime"))
 	if err != nil {
-		log.Printf("生成JWT时出错:%s", err.Error())
+		log.Panicf("读取配置文件时出现错误:%s", err)
 		return "", err
 	}
-	return tokenString, nil
+	claims := Claims{
+		claim.UserId,
+		claim.Username,
+		claim.Role,
+		jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add((time.Duration(exptime) * time.Hour))),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString([]byte(secret))
+	if err != nil {
+		log.Println(err)
+		return "", err
+	}
+	return tokenStr, nil
 }
 
-func ParseJWT(JWTString string) (JWTClaims, error) {
-	token, err := jwt.ParseWithClaims(JWTString, &JWTClaims{}, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, models.NewInternalError(500, "错误的JWT算法", nil)
-		}
-		return []byte(os.Getenv("JWTSalt")), nil
-	})
+func ParseJWT(tokenStr string) (models.JwtClaims, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
+		hmacSampleSecret := []byte("你好")
+		return hmacSampleSecret, nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
-		return JWTClaims{}, err
-	} else if claims, ok := token.Claims.(*JWTClaims); ok {
-		return *claims, nil
-	} else {
-		return JWTClaims{}, errors.New("处理JWT载荷错误")
+		log.Println(err)
+		return models.JwtClaims{}, err
 	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		var data models.JwtClaims
+		// log.Println(claims["user_id"])
+		data.Role = claims["role"].(string)
+		data.Username = claims["username"].(string)
+		userId := claims["user_id"].(float64)
+		data.UserId = int64(userId)
+		return data, nil
+	}
+	return models.JwtClaims{}, nil
 }

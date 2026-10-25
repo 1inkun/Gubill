@@ -1,0 +1,685 @@
+basePath: /api/v1
+definitions:
+  models.BuyGoodResponse:
+    properties:
+      pay_order_id:
+        type: integer
+    type: object
+  models.CurrentUser:
+    properties:
+      avatar_file:
+        example: ./avatar.png
+        type: string
+      nickname:
+        example: admin
+        type: string
+      username:
+        example: admin
+        type: string
+    type: object
+  models.FinishOrderResponse:
+    properties:
+      pay_order_id:
+        type: integer
+    type: object
+  models.Good:
+    properties:
+      description:
+        example: 在会员有效期内免费使用场地
+        type: string
+      id:
+        example: 1
+        type: integer
+      name:
+        example: 周卡会员
+        type: string
+      price:
+        example: 3000
+        type: integer
+      status:
+        example: 1
+        type: integer
+      type:
+        example: weekly
+        type: string
+    type: object
+  models.LoginRequest:
+    properties:
+      password:
+        example: password
+        maxLength: 32
+        minLength: 6
+        type: string
+      username:
+        example: username
+        maxLength: 20
+        minLength: 4
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.LoginSuccess:
+    properties:
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTc4MDAwMDAwMH0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+        type: string
+    type: object
+  models.MemberData:
+    properties:
+      end_at:
+        type: string
+      id:
+        example: 100001
+        type: integer
+      start_at:
+        type: string
+      status:
+        example: 1
+        type: integer
+      user_id:
+        example: 100001
+        type: integer
+    type: object
+  models.NewOrderRequest:
+    properties:
+      user_id:
+        example: 100001
+        type: integer
+    required:
+    - user_id
+    type: object
+  models.OrderResponse:
+    properties:
+      end_at:
+        type: string
+      id:
+        type: integer
+      price:
+        type: integer
+      start_at:
+        type: string
+      status:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  models.PayOrderData:
+    properties:
+      client_ip:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      order_no:
+        type: integer
+      privider:
+        type: string
+      status:
+        type: integer
+      total_fee:
+        type: integer
+      transaction_id:
+        type: string
+      type:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.RegisterRequest:
+    properties:
+      email:
+        example: 2233@123.com
+        type: string
+      nickname:
+        example: 宇宙无敌暴龙战神
+        type: string
+      password:
+        example: zxc123
+        maxLength: 32
+        minLength: 6
+        type: string
+      username:
+        example: username
+        maxLength: 20
+        minLength: 4
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  utils.ErrResponse:
+    properties:
+      detail: {}
+      errCode:
+        example: 0
+        type: integer
+      msg:
+        example: 内部错误
+        type: string
+      status:
+        example: fail
+        type: string
+    type: object
+  utils.PaginationData:
+    properties:
+      data: {}
+      page:
+        type: integer
+      pageSize:
+        type: integer
+    type: object
+  utils.Response:
+    properties:
+      code:
+        example: 200
+        type: integer
+      data: {}
+      msg:
+        example: 请求成功
+        type: string
+      status:
+        example: success
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: billApp API
+  version: "1.0"
+paths:
+  /good:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Good'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: 获取当前在售的会员商品信息
+      tags:
+      - good
+  /good/:good_id:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 所要购买的商品id
+        in: path
+        name: good_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.BuyGoodResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+        "401":
+          description: 登录状态有误
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: 购买会员商品
+      tags:
+      - good
+  /login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户的登录信息
+        in: body
+        name: logInfo
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.LoginSuccess'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: object
+              type: object
+      summary: 登录
+      tags:
+      - users
+  /member:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - example: 100001
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.MemberData'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "401":
+          description: 登录状态有误
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: object
+              type: object
+      summary: 查询用户的会员信息
+      tags:
+      - member
+  /order:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - in: query
+        name: id
+        type: integer
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: page_size
+        type: integer
+      - in: query
+        name: status
+        type: integer
+      - in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 按Id查询时的返回
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.OrderResponse'
+              type: object
+        "207":
+          description: 按userId查询时的返回
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/utils.PaginationData'
+                  - properties:
+                      data:
+                        items:
+                          $ref: '#/definitions/models.OrderResponse'
+                        type: array
+                    type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "401":
+          description: 登录状态有误
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: object
+              type: object
+      summary: 查找订单
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户签到时需要提供签到的用户ID
+        in: body
+        name: requestData
+        required: true
+        schema:
+          $ref: '#/definitions/models.NewOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.OrderResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "401":
+          description: 登录状态有误
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: object
+              type: object
+      summary: 新订单(签到)
+      tags:
+      - orders
+  /order/:order_id:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 结算时需要提供订单的orderId
+        in: path
+        name: order_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.FinishOrderResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "401":
+          description: 登录状态有误
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: object
+              type: object
+      summary: 结算订单
+      tags:
+      - orders
+  /pay:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - in: query
+        name: id
+        type: integer
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: page_size
+        type: integer
+      - in: query
+        name: status
+        type: integer
+      - in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 按Id查询时的返回
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PayOrderData'
+              type: object
+        "207":
+          description: 按userId查询时的返回
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/utils.PaginationData'
+                  - properties:
+                      data:
+                        items:
+                          $ref: '#/definitions/models.PayOrderData'
+                        type: array
+                    type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "401":
+          description: 登录状态有误
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: object
+              type: object
+      summary: 查找支付订单
+      tags:
+      - pay
+  /register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户的注册信息
+        in: body
+        name: registerInfo
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.ErrResponse'
+            - properties:
+                detail:
+                  type: object
+              type: object
+      summary: 注册新账户
+      tags:
+      - users
+  /status:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.CurrentUser'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.ErrResponse'
+      summary: 查看当前总体签到情况
+      tags:
+      - orders
+swagger: "2.0"

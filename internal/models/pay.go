@@ -1,36 +1,22 @@
 package models
 
-import (
-	"github.com/google/uuid"
-	"gorm.io/gorm"
-)
-
-type Pay struct {
-	Basic
-	BusinessType  string
-	BusinessId    string `gorm:"unique"`
-	UserId        string
-	Value         int64
-	Status        int64
-	PayMethods    int64
-	TransactionId string
-	ExpireTime    int64
-	PayAt         int64
+type PayOrderData struct {
+	Id            int64  `json:"id"`
+	UserId        int64  `json:"user_id"`
+	Type          string `json:"type"`
+	OrderNo       int64  `json:"order_no"`
+	TransactionId string `json:"transaction_id"`
+	Provider      string `json:"privider"`
+	ClientIP      string `json:"client_ip"`
+	Status        int64  `json:"status"`
+	TotalFee      int64  `json:"total_fee"`
+	Description   string `json:"description"`
 }
 
-type PayRes struct {
-	UUID         string `json:"payId"`
-	BusinessType string `json:"businessType"`
-	BusinessId   string `json:"businessId"`
-	UserId       string `json:"userId"`
-	Value        int64  `json:"value"`
-	Status       int64  `json:"status"`
-	ExpireTime   int64  `json:"expire_time"`
-	PayAt        int64  `json:"pay_at"`
-}
-
-func (p *Pay) BeforeCreate(tx *gorm.DB) (err error) {
-	p.UUID = uuid.NewString()
-	// log.Println(u.UUID)
-	return nil
+type SearchPayOrderDataParams struct {
+	Id       int64 `form:"id"`
+	UserId   int64 `form:"user_id"`
+	Status   int64 `form:"status"`
+	Page     int64 `form:"page"`
+	PageSize int64 `form:"page_size"`
 }
